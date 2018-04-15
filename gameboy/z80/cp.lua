@@ -1,19 +1,6 @@
-local bit32 = require("bit")
+function apply(opcodes, opcode_cycles)
 
-local lshift = bit32.lshift
-local band = bit32.band
-
-function apply(opcodes, opcode_cycles, z80, memory)
-  local read_at_hl = z80.read_at_hl
-  local set_at_hl = z80.set_at_hl
-  local read_nn = z80.read_nn
-  local reg = z80.registers
-  local flags = reg.flags
-
-  local read_byte = memory.read_byte
-  local write_byte = memory.write_byte
-
-  cp_with_a = function(value)
+  local function cp_with_a (reg, flags, value)
     -- half-carry
     flags.h = (reg.a % 0x10) - (value % 0x10) < 0
 
@@ -28,19 +15,19 @@ function apply(opcodes, opcode_cycles, z80, memory)
   end
 
   -- cp A, r
-  opcodes[0xB8] = function() cp_with_a(reg.b) end
-  opcodes[0xB9] = function() cp_with_a(reg.c) end
-  opcodes[0xBA] = function() cp_with_a(reg.d) end
-  opcodes[0xBB] = function() cp_with_a(reg.e) end
-  opcodes[0xBC] = function() cp_with_a(reg.h) end
-  opcodes[0xBD] = function() cp_with_a(reg.l) end
+  opcodes[0xB8] = function(self, reg, flags) cp_with_a(reg, flags, reg.b) end
+  opcodes[0xB9] = function(self, reg, flags) cp_with_a(reg, flags, reg.c) end
+  opcodes[0xBA] = function(self, reg, flags) cp_with_a(reg, flags, reg.d) end
+  opcodes[0xBB] = function(self, reg, flags) cp_with_a(reg, flags, reg.e) end
+  opcodes[0xBC] = function(self, reg, flags) cp_with_a(reg, flags, reg.h) end
+  opcodes[0xBD] = function(self, reg, flags) cp_with_a(reg, flags, reg.l) end
   opcode_cycles[0xBE] = 8
-  opcodes[0xBE] = function() cp_with_a(read_at_hl()) end
-  opcodes[0xBF] = function() cp_with_a(reg.a) end
+  opcodes[0xBE] = function(self, reg, flags) cp_with_a(reg, flags, self.read_at_hl()) end
+  opcodes[0xBF] = function(self, reg, flags) cp_with_a(reg, flags, reg.a) end
 
   -- cp A, nn
   opcode_cycles[0xFE] = 8
-  opcodes[0xFE] = function() cp_with_a(read_nn()) end
+  opcodes[0xFE] = function(self, reg, flags) cp_with_a(reg, flags, self.read_nn()) end
 end
 
 return apply

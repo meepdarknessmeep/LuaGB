@@ -17,12 +17,133 @@ local apply_ld = require("gameboy/z80/ld")
 local apply_rl_rr_cb = require("gameboy/z80/rl_rr_cb")
 local apply_stack = require("gameboy/z80/stack")
 
+local opcodes = {}
+local opcode_cycles = {}
+local opcode_names = {}
+
+-- Initialize the opcode_cycles table with 4 as a base cycle, so we only
+-- need to care about variations going forward
+for i = 0x00, 0xFF do
+  opcode_cycles[i] = 4
+end
+
+local add_cycles_normal = function(self, cycles)
+  self.timers.system_clock = self.timers.system_clock + cycles
+end
+
+local add_cycles_double = function(self, cycles)
+  self.timers.system_clock = self.timers.system_clock + cycles / 2
+end
+
+apply_arithmetic(opcodes, opcode_cycles)
+apply_bitwise(opcodes, opcode_cycles)
+apply_call(opcodes, opcode_cycles)
+apply_cp(opcodes, opcode_cycles)
+apply_inc_dec(opcodes, opcode_cycles)
+apply_jp(opcodes, opcode_cycles)
+apply_ld(opcodes, opcode_cycles)
+apply_rl_rr_cb(opcodes, opcode_cycles, z80, memory)
+apply_stack(opcodes, opcode_cycles, z80, memory)
+
+-- ====== GMB CPU-Controlcommands ======
+-- ccf
+opcodes[0x3F] = function(self, reg, flags)
+  flags.c = not flags.c
+  flags.n = false
+  flags.h = false
+end
+
+-- scf
+opcodes[0x37] = function(self, reg, flags)
+  flags.c = true
+  flags.n = false
+  flags.h = false
+end
+
+-- nop
+opcodes[0x00] = function(self, reg, flags) end
+
+-- halt
+opcodes[0x76] = function(self, reg, flags)
+  --if interrupts_enabled == 1 then
+    --print("Halting!")
+    self.halted = 1
+  --else
+    --print("Interrupts not enabled! Not actually halting...")
+  --end
+end
+
+-- stop
+opcodes[0x10] = function(self, reg, flags)
+  -- The stop opcode should always, for unknown reasons, be followed
+  -- by an 0x00 data byte. If it isn't, this may be a sign that the
+  -- emulator has run off the deep end, and this isn't a real STOP
+  -- instruction.
+  -- TODO: Research real hardware's behavior in these cases
+  local stop_value = read_nn()
+  if stop_value == 0x00 then
+    print("STOP instruction not followed by NOP!")
+    --halted = 1
+  else
+    print("Unimplemented WEIRDNESS after 0x10")
+  end
+
+  if band(io.ram[0x4D], 0x01) ~= 0 then
+    --speed switch!
+    print("Switching speeds!")
+    if z80.double_speed then
+      self.add_cycles = add_cycles_normal
+      self.double_speed = false
+      io.ram[0x4D] = band(io.ram[0x4D], 0x7E) + 0x00
+      timers:set_normal_speed()
+      print("Switched to Normal Speed")
+    else
+      self.add_cycles = add_cycles_double
+      self.double_speed = true
+      io.ram[0x4D] = band(io.ram[0x4D], 0x7E) + 0x80
+      timers:set_double_speed()
+      print("Switched to Double Speed")
+    end
+  end
+end
+
+-- di
+opcodes[0xF3] = function(self, reg, flags)
+  self.interrupts.disable()
+  --print("Disabled interrupts with DI")
+end
+-- ei
+opcodes[0xFB] = function(self, reg, flags)
+  self.interrupts.enable()
+  --print("Enabled interrupts with EI")
+  self.service_interrupt()
+end
+
+-- For any opcodes that at this point are undefined,
+-- go ahead and "define" them with the following panic
+-- function
+  local function undefined_opcode()
+    local opcode = read_byte(band(reg.pc - 1, 0xFFFF))
+    print(string.format("Unhandled opcode!: %x", opcode))
+  end
+
+for i = 0, 0xFF do
+  if not opcodes[i] then
+    opcodes[i] = undefined_opcode
+  end
+end
+
 local Registers = require("gameboy/z80/registers")
 
 local Z80 = {}
 
 function Z80.new(modules)
-  local z80 = {}
+  local z80 = {
+    modules = modules
+  }
+  for k, v in pairs(modules) do
+    z80[k] = v
+  end
 
   local interrupts = modules.interrupts
   local io = modules.io
@@ -33,6 +154,9 @@ function Z80.new(modules)
   local read_byte = memory.read_byte
   local write_byte = memory.write_byte
 
+  z80.write_byte = memory.write_byte
+  z80.read_byte = memory.read_byte
+
   z80.registers = Registers.new()
   local reg = z80.registers
   local flags = reg.flags
@@ -41,14 +165,6 @@ function Z80.new(modules)
   -- a bazillion times. The exported symbol uses the full name as a
   -- reasonable compromise.
   z80.halted = 0
-
-  local add_cycles_normal = function(cycles)
-    timers.system_clock = timers.system_clock + cycles
-  end
-
-  local add_cycles_double = function(cycles)
-    timers.system_clock = timers.system_clock + cycles / 2
-  end
 
   z80.add_cycles = add_cycles_normal
 
@@ -123,15 +239,6 @@ function Z80.new(modules)
 
   io.write_mask[0x4D] = 0x01
 
-  local opcodes = {}
-  local opcode_cycles = {}
-  local opcode_names = {}
-
-  -- Initialize the opcode_cycles table with 4 as a base cycle, so we only
-  -- need to care about variations going forward
-  for i = 0x00, 0xFF do
-    opcode_cycles[i] = 4
-  end
 
   function z80.read_at_hl()
     return memory.block_map[reg.h * 0x100][reg.h * 0x100 + reg.l]
@@ -151,89 +258,6 @@ function Z80.new(modules)
   local set_at_hl = z80.set_at_hl
   local read_nn = z80.read_nn
 
-  apply_arithmetic(opcodes, opcode_cycles, z80, memory)
-  apply_bitwise(opcodes, opcode_cycles, z80, memory)
-  apply_call(opcodes, opcode_cycles, z80, memory, interrupts)
-  apply_cp(opcodes, opcode_cycles, z80, memory)
-  apply_inc_dec(opcodes, opcode_cycles, z80, memory)
-  apply_jp(opcodes, opcode_cycles, z80, memory)
-  apply_ld(opcodes, opcode_cycles, z80, memory)
-  apply_rl_rr_cb(opcodes, opcode_cycles, z80, memory)
-  apply_stack(opcodes, opcode_cycles, z80, memory)
-
-  -- ====== GMB CPU-Controlcommands ======
-  -- ccf
-  opcodes[0x3F] = function()
-    flags.c = not flags.c
-    flags.n = false
-    flags.h = false
-  end
-
-  -- scf
-  opcodes[0x37] = function()
-    flags.c = true
-    flags.n = false
-    flags.h = false
-  end
-
-  -- nop
-  opcodes[0x00] = function() end
-
-  -- halt
-  opcodes[0x76] = function()
-    --if interrupts_enabled == 1 then
-      --print("Halting!")
-      z80.halted = 1
-    --else
-      --print("Interrupts not enabled! Not actually halting...")
-    --end
-  end
-
-  -- stop
-  opcodes[0x10] = function()
-    -- The stop opcode should always, for unknown reasons, be followed
-    -- by an 0x00 data byte. If it isn't, this may be a sign that the
-    -- emulator has run off the deep end, and this isn't a real STOP
-    -- instruction.
-    -- TODO: Research real hardware's behavior in these cases
-    local stop_value = read_nn()
-    if stop_value == 0x00 then
-      print("STOP instruction not followed by NOP!")
-      --halted = 1
-    else
-      print("Unimplemented WEIRDNESS after 0x10")
-    end
-
-    if band(io.ram[0x4D], 0x01) ~= 0 then
-      --speed switch!
-      print("Switching speeds!")
-      if z80.double_speed then
-        z80.add_cycles = add_cycles_normal
-        z80.double_speed = false
-        io.ram[0x4D] = band(io.ram[0x4D], 0x7E) + 0x00
-        timers:set_normal_speed()
-        print("Switched to Normal Speed")
-      else
-        z80.add_cycles = add_cycles_double
-        z80.double_speed = true
-        io.ram[0x4D] = band(io.ram[0x4D], 0x7E) + 0x80
-        timers:set_double_speed()
-        print("Switched to Double Speed")
-      end
-    end
-  end
-
-  -- di
-  opcodes[0xF3] = function()
-    interrupts.disable()
-    --print("Disabled interrupts with DI")
-  end
-  -- ei
-  opcodes[0xFB] = function()
-    interrupts.enable()
-    --print("Enabled interrupts with EI")
-    z80.service_interrupt()
-  end
 
   z80.service_interrupt = function()
     local fired = band(io.ram[0xFF], io.ram[0x0F])
@@ -262,7 +286,7 @@ function Z80.new(modules)
 
         reg.pc = vector
 
-        z80.add_cycles(12)
+        z80:add_cycles(12)
         return true
       end
     end
@@ -272,20 +296,6 @@ function Z80.new(modules)
   -- register this as a callback with the interrupts module
   interrupts.service_handler = z80.service_interrupt
 
-  -- For any opcodes that at this point are undefined,
-  -- go ahead and "define" them with the following panic
-  -- function
-  local function undefined_opcode()
-    local opcode = read_byte(band(reg.pc - 1, 0xFFFF))
-    print(string.format("Unhandled opcode!: %x", opcode))
-  end
-
-  for i = 0, 0xFF do
-    if not opcodes[i] then
-      opcodes[i] = undefined_opcode
-    end
-  end
-
   z80.process_instruction = function()
     --  If the processor is currently halted, then do nothing.
     if z80.halted == 0 then
@@ -293,15 +303,15 @@ function Z80.new(modules)
       -- Advance to one byte beyond the opcode
       reg.pc = band(reg.pc + 1, 0xFFFF)
       -- Run the instruction
-      opcodes[opcode]()
+      opcodes[opcode](z80, reg, flags)
 
       -- add a base clock of 4 to every instruction
       -- NOPE, working on removing add_cycles, pull from the opcode_cycles
       -- table instead
-      z80.add_cycles(opcode_cycles[opcode])
+      z80:add_cycles(opcode_cycles[opcode])
     else
       -- Base cycles of 4 when halted, for sanity
-      z80.add_cycles(4)
+      z80:add_cycles(4)
     end
 
     return true

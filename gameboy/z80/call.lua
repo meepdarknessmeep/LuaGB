@@ -3,44 +3,33 @@ local bit32 = require("bit")
 local lshift = bit32.lshift
 local rshift = bit32.rshift
 local band = bit32.band
-local bxor = bit32.bxor
-local bor = bit32.bor
-local bnor = bit32.bnor
 
-function apply(opcodes, opcode_cycles, z80, memory, interrupts)
-  local read_nn = z80.read_nn
-  local reg = z80.registers
-  local flags = reg.flags
+function apply(opcodes, opcode_cycles)
 
-  local read_byte = memory.read_byte
-  local write_byte = memory.write_byte
-
-  local call_nnnn = function()
-    local lower = read_nn()
-    local upper = read_nn() * 256
+  local function call_nnnn (self, reg)
+    local lower = self.read_nn()
+    local upper = self.read_nn() * 256
     -- at this point, reg.pc points at the next instruction after the call,
     -- so store the current PC to the stack
 
     reg.sp = (reg.sp + 0xFFFF) % 0x10000
-    write_byte(reg.sp, rshift(reg.pc, 8))
+    self.write_byte(reg.sp, rshift(reg.pc, 8))
     reg.sp = (reg.sp + 0xFFFF) % 0x10000
-    write_byte(reg.sp, reg.pc % 0x100)
+    self.write_byte(reg.sp, reg.pc % 0x100)
 
     reg.pc = upper + lower
   end
 
   -- call nn
   opcode_cycles[0xCD] = 24
-  opcodes[0xCD] = function()
-    call_nnnn()
-  end
+  opcodes[0xCD] = call_nnnn
 
   -- call nz, nnnn
   opcode_cycles[0xC4] = 12
-  opcodes[0xC4] = function()
+  opcodes[0xC4] = function(self, reg, flags)
     if not flags.z then
-      call_nnnn()
-      z80.add_cycles(12)
+      call_nnnn(self, reg)
+      self:add_cycles(12)
     else
       reg.pc = reg.pc + 2
     end
@@ -48,10 +37,10 @@ function apply(opcodes, opcode_cycles, z80, memory, interrupts)
 
   -- call nc, nnnn
   opcode_cycles[0xD4] = 12
-  opcodes[0xD4] = function()
+  opcodes[0xD4] = function(self, reg, flags)
     if not flags.c then
-      call_nnnn()
-      z80.add_cycles(12)
+      call_nnnn(self, reg)
+      self:add_cycles(12)
     else
       reg.pc = reg.pc + 2
     end
@@ -59,10 +48,10 @@ function apply(opcodes, opcode_cycles, z80, memory, interrupts)
 
   -- call z, nnnn
   opcode_cycles[0xCC] = 12
-  opcodes[0xCC] = function()
+  opcodes[0xCC] = function(self, reg, flags)
     if flags.z then
-      call_nnnn()
-      z80.add_cycles(12)
+      call_nnnn(self, reg)
+      self:add_cycles(12)
     else
       reg.pc = reg.pc + 2
     end
@@ -70,102 +59,102 @@ function apply(opcodes, opcode_cycles, z80, memory, interrupts)
 
   -- call c, nnnn
   opcode_cycles[0xDC] = 12
-  opcodes[0xDC] = function()
+  opcodes[0xDC] = function(self, reg, flags)
     if flags.c then
-      call_nnnn()
-      z80.add_cycles(12)
+      call_nnnn(self, reg)
+      self:add_cycles(12)
     else
       reg.pc = reg.pc + 2
     end
   end
 
-  local ret = function()
-    local lower = read_byte(reg.sp)
+  local function ret (self, reg)
+    local lower = self.read_byte(reg.sp)
     reg.sp = band(0xFFFF, reg.sp + 1)
-    local upper = lshift(read_byte(reg.sp), 8)
+    local upper = lshift(self.read_byte(reg.sp), 8)
     reg.sp = band(0xFFFF, reg.sp + 1)
     reg.pc = upper + lower
-    z80.add_cycles(12)
+    self:add_cycles(12)
   end
 
   -- ret
-  opcodes[0xC9] = function() ret() end
+  opcodes[0xC9] = ret
 
   -- ret nz
   opcode_cycles[0xC0] = 8
-  opcodes[0xC0] = function()
+  opcodes[0xC0] = function(self, reg, flags)
     if not flags.z then
-      ret()
+      ret(self, reg)
     end
   end
 
   -- ret nc
   opcode_cycles[0xD0] = 8
-  opcodes[0xD0] = function()
+  opcodes[0xD0] = function(self, reg, flags)
     if not flags.c then
-      ret()
+      ret(self, reg)
     end
   end
 
   -- ret z
   opcode_cycles[0xC8] = 8
-  opcodes[0xC8] = function()
+  opcodes[0xC8] = function(self, reg, flags)
     if flags.z then
-      ret()
+      ret(self, reg)
     end
   end
 
   -- ret c
   opcode_cycles[0xD8] = 8
-  opcodes[0xD8] = function()
+  opcodes[0xD8] = function(self, reg, flags)
     if flags.c then
-      ret()
+      ret(self, reg)
     end
   end
 
   -- reti
-  opcodes[0xD9] = function()
-    ret()
-    interrupts.enable()
-    z80.service_interrupt()
+  opcodes[0xD9] = function(self, reg, flags)
+    ret(self, reg)
+    self.modules.interrupts.enable()
+    self.service_interrupt()
   end
 
   -- note: used only for the RST instructions below
-  local function call_address(address)
+  local function call_address (self, reg, address)
     -- reg.pc points at the next instruction after the call,
     -- so store the current PC to the stack
     reg.sp = band(0xFFFF, reg.sp - 1)
-    write_byte(reg.sp, rshift(band(reg.pc, 0xFF00), 8))
+    self.write_byte(reg.sp, rshift(band(reg.pc, 0xFF00), 8))
     reg.sp = band(0xFFFF, reg.sp - 1)
-    write_byte(reg.sp, band(reg.pc, 0xFF))
+    self.write_byte(reg.sp, band(reg.pc, 0xFF))
 
     reg.pc = address
   end
 
   -- rst N
   opcode_cycles[0xC7] = 16
-  opcodes[0xC7] = function() call_address(0x00) end
+  opcodes[0xC7] = function(self, reg, flags) call_address(self, reg, 0x00) end
 
   opcode_cycles[0xCF] = 16
-  opcodes[0xCF] = function() call_address(0x08) end
+  opcodes[0xCF] = function(self, reg, flags) call_address(self, reg, 0x08) end
 
   opcode_cycles[0xD7] = 16
-  opcodes[0xD7] = function() call_address(0x10) end
+  opcodes[0xD7] = function(self, reg, flags) call_address(self, reg, 0x10) end
 
   opcode_cycles[0xDF] = 16
-  opcodes[0xDF] = function() call_address(0x18) end
+  opcodes[0xDF] = function(self, reg, flags) call_address(self, reg, 0x18) end
 
   opcode_cycles[0xE7] = 16
-  opcodes[0xE7] = function() call_address(0x20) end
+  opcodes[0xE7] = function(self, reg, flags) call_address(self, reg, 0x20) end
 
   opcode_cycles[0xEF] = 16
-  opcodes[0xEF] = function() call_address(0x28) end
+  opcodes[0xEF] = function(self, reg, flags) call_address(self, reg, 0x28) end
 
   opcode_cycles[0xF7] = 16
-  opcodes[0xF7] = function() call_address(0x30) end
+  opcodes[0xF7] = function(self, reg, flags) call_address(self, reg, 0x30) end
 
   opcode_cycles[0xFF] = 16
-  opcodes[0xFF] = function() call_address(0x38) end
+  opcodes[0xFF] = function(self, reg, flags) call_address(self, reg, 0x38) end
 end
 
 return apply
