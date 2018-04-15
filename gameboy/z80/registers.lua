@@ -7,8 +7,8 @@ local rshift = bit32.rshift
 local Registers = {}
 
 function Registers.new()
-  -- [1] = pc
-  local registers = {0}
+  -- [1] = pc, [2] = sp
+  local registers = {0, 0}
   local reg = registers
 
   reg.a = 0
@@ -24,7 +24,6 @@ function Registers.new()
   } --z=false,n=false,h=false,c=false}
   reg.h = 0
   reg.l = 0
-  reg.sp = 0
 
   reg.f = function()
     local value = 0

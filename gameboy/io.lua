@@ -2,6 +2,9 @@ local bit32 = require("bit")
 
 local Io = {}
 
+local band, bor = bit32.band, bit32.bor
+local bnot = bit32.bnot
+
 function Io.new(modules)
   local io = {}
 
@@ -111,8 +114,8 @@ function Io.new(modules)
 
   io.write_logic[0x70] = function(byte)
     if io.gameboy.type == io.gameboy.types.color then
-      io.ram[0x70] = bit32.band(0x7, byte)
-      memory.work_ram_1.bank = bit32.band(0x7, byte)
+      io.ram[0x70] = band(0x7, byte)
+      memory.work_ram_1.bank = band(0x7, byte)
       if memory.work_ram_1.bank == 0 then
         memory.work_ram_1.bank = 1
       end
@@ -125,9 +128,7 @@ function Io.new(modules)
   io.block.mt.__newindex = function(table, address, value)
     address = address - 0xFF00
     if io.write_mask[address] then
-      local masked_value = bit32.band(value, io.write_mask[address])
-      local masked_memory = bit32.band(io.ram[address], bit32.bnot(io.write_mask[address]))
-      value = masked_value + masked_memory
+      value = bor(band(value, io.write_mask[address]), band(io.ram[address], bnot(io.write_mask[address])))
     end
     if io.write_logic[address] then
       -- Some addresses (mostly IO ports) have fancy logic or do strange things on

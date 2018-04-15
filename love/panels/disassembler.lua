@@ -63,7 +63,7 @@ end
 
 disassembler.print_opcodes = function(gameboy)
   local y = 15
-  local pc = gameboy.processor.registers.pc
+  local pc = gameboy.processor.registers[1]
   local darken_rows = 0
   love.graphics.setColor(0.5, 0.5, 0.5)
   love.graphics.rectangle("fill", 0, 14, 128, 7)

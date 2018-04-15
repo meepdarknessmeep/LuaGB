@@ -45,6 +45,13 @@ function Gameboy:reset()
   self.interrupts.enabled = 1
 end
 
+function Gameboy:profile(state)
+  if (state) then
+    self.profiling = true
+    self.processor.profiler = {}
+  end
+end
+
 function Gameboy:save_state()
   local state = {}
   state.audio = self.audio.save_state()
@@ -111,11 +118,11 @@ local rst_opcodes = {[0xC7]=true, [0xCF]=true, [0xD7]=true, [0xDF]=true, [0xE7]=
 function Gameboy:step_over()
   -- Make sure the *current* opcode is a CALL / RST
   local instructions = 0
-  local pc = self.processor.registers.pc
+  local pc = self.processor.registers[1]
   local opcode = self.memory[pc]
   if call_opcodes[opcode] then
     local return_address = bit32.band(pc + 3, 0xFFFF)
-    while self.processor.registers.pc ~= return_address and instructions < 10000000 do
+    while self.processor.registers[1] ~= return_address and instructions < 10000000 do
       self:step()
       instructions = instructions + 1
     end
@@ -123,7 +130,7 @@ function Gameboy:step_over()
   end
   if rst_opcodes[opcode] then
     local return_address = bit32.band(pc + 1, 0xFFFF)
-    while self.processor.registers.pc ~= return_address and instructions < 10000000 do
+    while self.processor.registers[1] ~= return_address and instructions < 10000000 do
       self:step()
       instructions = instructions + 1
     end
@@ -136,7 +143,7 @@ local ret_opcodes = {[0xC9]=true, [0xC0]=true, [0xD0]=true, [0xC8]=true, [0xD8]=
 
 function Gameboy:run_until_ret()
   local instructions = 0
-  while ret_opcodes[self.memory[self.processor.registers.pc]] ~= true and instructions < 10000000 do
+  while ret_opcodes[self.memory[self.processor.registers[1]]] ~= true and instructions < 10000000 do
     self:step()
     instructions = instructions + 1
   end

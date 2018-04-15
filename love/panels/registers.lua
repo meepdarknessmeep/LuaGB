@@ -80,8 +80,8 @@ end
 
 registers.print_pointer_registers = function(gameboy, x, y)
   local pointer_registers = {
-    {0, 0, 0, "SP", "sp"},
-    {0, 0, 0, "PC", "pc"}
+    {0, 0, 0, "SP", 2},
+    {0, 0, 0, "PC", 1}
   }
 
   local ry = 0

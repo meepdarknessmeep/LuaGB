@@ -239,13 +239,13 @@ opcode_cycles[0x70] = 8
   opcodes[0x31] = function(self, reg, flags)
     local lower = self.read_nn()
     local upper = lshift(self.read_nn(), 8)
-    reg.sp = band(0xFFFF, upper + lower)
+    reg[2] = band(0xFFFF, upper + lower)
   end
 
   -- ld SP, HL
   opcode_cycles[0xF9] = 8
   opcodes[0xF9] = function(self, reg, flags)
-    reg.sp = reg.hl()
+    reg[2] = reg.hl()
   end
 
   -- ld HL, SP + dd
@@ -254,8 +254,8 @@ opcode_cycles[0x70] = 8
     -- cheat
     local old_sp = reg.sp
     opcodes[0xE8]()
-    reg.set_hl(reg.sp)
-    reg.sp = old_sp
+    reg.set_hl(reg[2])
+    reg[2] = old_sp
   end
 
   -- ====== GMB Special Purpose / Relocated Commands ======
@@ -265,8 +265,8 @@ opcode_cycles[0x70] = 8
     local lower = self.read_nn()
     local upper = lshift(self.read_nn(), 8)
     local address = upper + lower
-    self.write_byte(address, band(reg.sp, 0xFF))
-    self.write_byte(band(address + 1, 0xFFFF), rshift(band(reg.sp, 0xFF00), 8))
+    self.write_byte(address, band(reg[2], 0xFF))
+    self.write_byte(band(address + 1, 0xFFFF), rshift(band(reg[2], 0xFF00), 8))
   end
 end
 

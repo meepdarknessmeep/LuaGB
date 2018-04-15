@@ -12,10 +12,10 @@ function apply(opcodes, opcode_cycles)
     -- at this point, reg[1] points at the next instruction after the call,
     -- so store the current PC to the stack
 
-    reg.sp = (reg.sp + 0xFFFF) % 0x10000
-    self.write_byte(reg.sp, rshift(reg[1], 8))
-    reg.sp = (reg.sp + 0xFFFF) % 0x10000
-    self.write_byte(reg.sp, reg[1] % 0x100)
+    reg[2] = (reg[2] + 0xFFFF) % 0x10000
+    self.write_byte(reg[2], rshift(reg[1], 8))
+    reg[2] = (reg[2] + 0xFFFF) % 0x10000
+    self.write_byte(reg[2], reg[1] % 0x100)
 
     reg[1] = upper + lower
   end
@@ -69,10 +69,10 @@ function apply(opcodes, opcode_cycles)
   end
 
   local function ret (self, reg)
-    local lower = self.read_byte(reg.sp)
-    reg.sp = band(0xFFFF, reg.sp + 1)
-    local upper = lshift(self.read_byte(reg.sp), 8)
-    reg.sp = band(0xFFFF, reg.sp + 1)
+    local lower = self.read_byte(reg[2])
+    reg[2] = band(0xFFFF, reg[2] + 1)
+    local upper = lshift(self.read_byte(reg[2]), 8)
+    reg[2] = band(0xFFFF, reg[2] + 1)
     reg[1] = upper + lower
     self:add_cycles(12)
   end
@@ -123,10 +123,10 @@ function apply(opcodes, opcode_cycles)
   local function call_address (self, reg, address)
     -- reg[1] points at the next instruction after the call,
     -- so store the current PC to the stack
-    reg.sp = band(0xFFFF, reg.sp - 1)
-    self.write_byte(reg.sp, rshift(band(reg[1], 0xFF00), 8))
-    reg.sp = band(0xFFFF, reg.sp - 1)
-    self.write_byte(reg.sp, band(reg[1], 0xFF))
+    reg[2] = band(0xFFFF, reg[2] - 1)
+    self.write_byte(reg[2], rshift(band(reg[1], 0xFF00), 8))
+    reg[2] = band(0xFFFF, reg[2] - 1)
+    self.write_byte(reg[2], band(reg[1], 0xFF))
 
     reg[1] = address
   end

@@ -191,7 +191,7 @@ function apply(opcodes, opcode_cycles)
   opcodes[0x09] = function(self, reg, flags) add_to_hl(reg, flags, reg.bc()) end
   opcodes[0x19] = function(self, reg, flags) add_to_hl(reg, flags, reg.de()) end
   opcodes[0x29] = function(self, reg, flags) add_to_hl(reg, flags, reg.hl()) end
-  opcodes[0x39] = function(self, reg, flags) add_to_hl(reg, flags, reg.sp) end
+  opcodes[0x39] = function(self, reg, flags) add_to_hl(reg, flags, reg[2]) end
 
   -- inc rr
   opcode_cycles[0x03] = 8
@@ -211,7 +211,7 @@ function apply(opcodes, opcode_cycles)
 
   opcode_cycles[0x33] = 8
   opcodes[0x33] = function(self, reg, flags)
-    reg.sp = band(reg.sp + 1, 0xFFFF)
+    reg[2] = band(reg[2] + 1, 0xFFFF)
   end
 
   -- dec rr
@@ -232,7 +232,7 @@ function apply(opcodes, opcode_cycles)
 
   opcode_cycles[0x3B] = 8
   opcodes[0x3B] = function(self, reg, flags)
-    reg.sp = band(reg.sp - 1, 0xFFFF)
+    reg[2] = band(reg[2] - 1, 0xFFFF)
   end
 
   -- add SP, dd
@@ -245,13 +245,13 @@ function apply(opcodes, opcode_cycles)
     end
 
     -- half carry
-    --if band(reg.sp, 0xFFF) + offset > 0xFFF or band(reg.sp, 0xFFF) + offset < 0 then
-    flags[3] = band(reg.sp, 0xF) + band(offset, 0xF) > 0xF
+    --if band(reg[2], 0xFFF) + offset > 0xFFF or band(reg[2], 0xFFF) + offset < 0 then
+    flags[3] = band(reg[2], 0xF) + band(offset, 0xF) > 0xF
     -- carry
-    flags[4] = band(reg.sp, 0xFF) + band(offset, 0xFF) > 0xFF
+    flags[4] = band(reg[2], 0xFF) + band(offset, 0xFF) > 0xFF
 
-    reg.sp = reg.sp + offset
-    reg.sp = band(reg.sp, 0xFFFF)
+    reg[2] = reg[2] + offset
+    reg[2] = band(reg[2], 0xFFFF)
 
     flags[1] = false
     flags[2] = false

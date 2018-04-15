@@ -1,20 +1,42 @@
 local bit32 = require("bit")
 
+local brshift = bit32.rshift
+
 local Memory = {}
 
 function Memory.new(modules)
   local memory = {}
 
-  local block_map = {}
-  memory.block_map = block_map
+  local invalid_map_mt = {
+    __index = function(self, offset)
+      error(string.format("failure to read data from %04X", offset + self.base))
+    end,
+    __newindex = function(self, offset, value)
+      error(string.format("failure to write data from %04X", offset + self.base))
+    end,
+    __eq = function() return true end
+  }
+  setmetatable(invalid_map_mt, invalid_map_mt)
+
+  -- high byte index
+  local high_byte_base_address = {[0] = 0}
+  local high_byte_map = {[0] = setmetatable({base = 0}, invalid_map_mt)}
+  for i = 1, 0xff do
+    local base = bit.lshift(i, 8)
+    table.insert(high_byte_base_address, base)
+    table.insert(high_byte_map, setmetatable({
+      base = base
+    }, invalid_map_mt))
+  end
+
 
   memory.print_block_map = function()
     --debug
     print("Block Map: ")
     for b = 0, 0xFF do
-      if block_map[bit32.lshift(b, 8)] then
-        --print(string.format("Block at: %02X starts at %04X", b, block_map[bit32.lshift(b, 8)].start))
-        print(block_map[bit32.lshift(b, 8)])
+      local map = high_byte_map[b]
+      if (map ~= invalid_map_mt) then
+        print(string.format("Block at: %02X starts at %04X", b, map.base))
       end
     end
   end
@@ -25,33 +47,33 @@ function Memory.new(modules)
       return
     end
 
-    --starting_address = starting_address or bit32.lshift(starting_high_byte, 8)
+    rawset(mapped_block, "base", bit.lshift(starting_high_byte, 8))
+
     for i = starting_high_byte, ending_high_byte do
-      --block_map[bit32.lshift(i, 8)] = {start=starting_address, block=mapped_block}
-      block_map[bit32.lshift(i, 8)] = mapped_block
+      high_byte_base_address[i] = mapped_block.base
+      high_byte_map[i] = mapped_block
     end
+
+    memory.print_block_map()
   end
 
   memory.generate_block = function(size, starting_address)
     starting_address = starting_address or 0
     local block = {}
-    for i = 0, size - 1 do
-      block[starting_address + i] = 0
+    for i = starting_address, starting_address + size - 1 do
+      block[i] = 0
     end
     return block
   end
 
-  -- Default, unmapped memory
-  memory.unmapped = {}
-  memory.unmapped.mt = {}
-  memory.unmapped.mt.__index = function(table, key)
-    return 0x00
-  end
-  memory.unmapped.mt.__newindex = function(table, key, value)
-    -- Do nothing!
-  end
-  setmetatable(memory.unmapped, memory.unmapped.mt)
-  memory.map_block(0, 0xFF, memory.unmapped)
+  local echo_mt = {
+    __index = function(self, offset)
+      return self.echo[offset - self.base + self.echo.base]
+    end,
+    __newindex = function(self, offset, value)
+      self.echo[offset - self.base + self.echo.base] = value
+    end
+  }
 
   -- Main Memory
   memory.work_ram_0 = memory.generate_block(4 * 1024, 0xC000)
@@ -67,27 +89,26 @@ function Memory.new(modules)
   end
   setmetatable(memory.work_ram_1, memory.work_ram_1.mt)
   memory.map_block(0xC0, 0xCF, memory.work_ram_0, 0)
+  memory.map_block(0xE0, 0xEF, setmetatable({
+    echo = memory.work_ram_0
+  }, echo_mt))
   memory.map_block(0xD0, 0xDF, memory.work_ram_1, 0)
-
-  memory.work_ram_echo = {}
-  memory.work_ram_echo.mt = {}
-  memory.work_ram_echo.mt.__index = function(table, key)
-    return memory.read_byte(key - 0xE000 + 0xC000)
-  end
-  memory.work_ram_echo.mt.__newindex = function(table, key, value)
-    memory.write_byte(key - 0xE000 + 0xC000, value)
-  end
-  setmetatable(memory.work_ram_echo, memory.work_ram_echo.mt)
-  memory.map_block(0xE0, 0xFD, memory.work_ram_echo, 0)
+  memory.map_block(0xF0, 0xFD, setmetatable({
+    echo = memory.work_ram_1
+  }, echo_mt))
 
   memory.read_byte = function(address)
-    local high_byte = bit32.band(address, 0xFF00)
-    return block_map[high_byte][address]
+    local high_byte = brshift(address, 8)
+    return high_byte_map[high_byte][address]
   end
 
   memory.write_byte = function(address, byte)
-    local high_byte = bit32.band(address, 0xFF00)
-    block_map[high_byte][address] = byte
+    local high_byte = brshift(address, 8)
+    high_byte_map[high_byte][address] = byte
+  end
+
+  memory.get_map = function(high_byte)
+    return high_byte_map[high_byte]
   end
 
   memory.reset = function()

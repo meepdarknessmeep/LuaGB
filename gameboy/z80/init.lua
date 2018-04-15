@@ -179,6 +179,7 @@ function Z80.new(modules)
 
   z80.write_byte = memory.write_byte
   z80.read_byte = memory.read_byte
+  z80.get_map = memory.get_map -- TODO: this is bad 
 
   z80.registers = Registers.new()
   local reg = z80.registers
@@ -219,7 +220,7 @@ function Z80.new(modules)
     reg.h = 0x01
     reg.l = 0x4D
     reg[1] = 0x100 --entrypoint for GB games
-    reg.sp = 0xFFFE
+    reg[2] = 0xFFFE
 
     z80.halted = 0
 
@@ -252,7 +253,7 @@ function Z80.new(modules)
     z80.registers.h = state.registers.h
     z80.registers.l = state.registers.l
     z80.registers[1] = state.registers[1]
-    z80.registers.sp = state.registers.sp
+    z80.registers[2] = state.registers.sp
 
     z80.double_speed = state.double_speed
     if z80.double_speed then
@@ -305,10 +306,10 @@ function Z80.new(modules)
         -- we need to clear the corresponding bit first, to avoid infinite loops
         io.ram[0x0F] = bxor(lshift(0x1, count), io.ram[0x0F])
 
-        reg.sp = band(0xFFFF, reg.sp - 1)
-        write_byte(reg.sp, rshift(band(reg[1], 0xFF00), 8))
-        reg.sp = band(0xFFFF, reg.sp - 1)
-        write_byte(reg.sp, band(reg[1], 0xFF))
+        reg[2] = band(0xFFFF, reg[2] - 1)
+        write_byte(reg[2], rshift(band(reg[1], 0xFF00), 8))
+        reg[2] = band(0xFFFF, reg[2] - 1)
+        write_byte(reg[2], band(reg[1], 0xFF))
 
         reg[1] = vector
 
@@ -323,7 +324,7 @@ function Z80.new(modules)
   interrupts.service_handler = z80.service_interrupt
 
   z80.process_instruction = function()
-    local profiling, start_time = z80.gameboy and z80.gameboy.profiling
+    local profiling, start_time, fake_opcode, extrabits = z80.gameboy and z80.gameboy.profiling
     --  If the processor is currently halted, then do nothing.
     if z80.halted == 0 then
       local opcode = read_byte(reg[1])
@@ -331,6 +332,12 @@ function Z80.new(modules)
       reg[1] = band(reg[1] + 1, 0xFFFF)
       -- Run the instruction
       if (profiling) then
+        fake_opcode = opcode
+        extrabits = 0
+        if (opcode == 0xE0) then -- io write
+          fake_opcode = bit.lshift(opcode, 8) + read_byte(reg[1])
+          extrabits = 8
+        end
         start_time = clock()
       end
 
@@ -338,13 +345,14 @@ function Z80.new(modules)
 
       if (profiling) then
         local time_elapsed = clock() - start_time
-        local profile = z80.profiler[opcode]
+        local profile = z80.profiler[fake_opcode]
         if (not profile) then
           profile = {
             time = 0,
-            calls = 0
+            calls = 0,
+            extrabits = extrabits
           }
-          z80.profiler[opcode] = profile
+          z80.profiler[fake_opcode] = profile
         end
 
         profile.time = profile.time + time_elapsed
