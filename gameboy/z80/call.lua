@@ -9,15 +9,15 @@ function apply(opcodes, opcode_cycles)
   local function call_nnnn (self, reg)
     local lower = self.read_nn()
     local upper = self.read_nn() * 256
-    -- at this point, reg.pc points at the next instruction after the call,
+    -- at this point, reg[1] points at the next instruction after the call,
     -- so store the current PC to the stack
 
     reg.sp = (reg.sp + 0xFFFF) % 0x10000
-    self.write_byte(reg.sp, rshift(reg.pc, 8))
+    self.write_byte(reg.sp, rshift(reg[1], 8))
     reg.sp = (reg.sp + 0xFFFF) % 0x10000
-    self.write_byte(reg.sp, reg.pc % 0x100)
+    self.write_byte(reg.sp, reg[1] % 0x100)
 
-    reg.pc = upper + lower
+    reg[1] = upper + lower
   end
 
   -- call nn
@@ -27,44 +27,44 @@ function apply(opcodes, opcode_cycles)
   -- call nz, nnnn
   opcode_cycles[0xC4] = 12
   opcodes[0xC4] = function(self, reg, flags)
-    if not flags.z then
+    if not flags[1] then
       call_nnnn(self, reg)
       self:add_cycles(12)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
     end
   end
 
   -- call nc, nnnn
   opcode_cycles[0xD4] = 12
   opcodes[0xD4] = function(self, reg, flags)
-    if not flags.c then
+    if not flags[4] then
       call_nnnn(self, reg)
       self:add_cycles(12)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
     end
   end
 
   -- call z, nnnn
   opcode_cycles[0xCC] = 12
   opcodes[0xCC] = function(self, reg, flags)
-    if flags.z then
+    if flags[1] then
       call_nnnn(self, reg)
       self:add_cycles(12)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
     end
   end
 
   -- call c, nnnn
   opcode_cycles[0xDC] = 12
   opcodes[0xDC] = function(self, reg, flags)
-    if flags.c then
+    if flags[4] then
       call_nnnn(self, reg)
       self:add_cycles(12)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
     end
   end
 
@@ -73,7 +73,7 @@ function apply(opcodes, opcode_cycles)
     reg.sp = band(0xFFFF, reg.sp + 1)
     local upper = lshift(self.read_byte(reg.sp), 8)
     reg.sp = band(0xFFFF, reg.sp + 1)
-    reg.pc = upper + lower
+    reg[1] = upper + lower
     self:add_cycles(12)
   end
 
@@ -83,7 +83,7 @@ function apply(opcodes, opcode_cycles)
   -- ret nz
   opcode_cycles[0xC0] = 8
   opcodes[0xC0] = function(self, reg, flags)
-    if not flags.z then
+    if not flags[1] then
       ret(self, reg)
     end
   end
@@ -91,7 +91,7 @@ function apply(opcodes, opcode_cycles)
   -- ret nc
   opcode_cycles[0xD0] = 8
   opcodes[0xD0] = function(self, reg, flags)
-    if not flags.c then
+    if not flags[4] then
       ret(self, reg)
     end
   end
@@ -99,7 +99,7 @@ function apply(opcodes, opcode_cycles)
   -- ret z
   opcode_cycles[0xC8] = 8
   opcodes[0xC8] = function(self, reg, flags)
-    if flags.z then
+    if flags[1] then
       ret(self, reg)
     end
   end
@@ -107,7 +107,7 @@ function apply(opcodes, opcode_cycles)
   -- ret c
   opcode_cycles[0xD8] = 8
   opcodes[0xD8] = function(self, reg, flags)
-    if flags.c then
+    if flags[4] then
       ret(self, reg)
     end
   end
@@ -121,14 +121,14 @@ function apply(opcodes, opcode_cycles)
 
   -- note: used only for the RST instructions below
   local function call_address (self, reg, address)
-    -- reg.pc points at the next instruction after the call,
+    -- reg[1] points at the next instruction after the call,
     -- so store the current PC to the stack
     reg.sp = band(0xFFFF, reg.sp - 1)
-    self.write_byte(reg.sp, rshift(band(reg.pc, 0xFF00), 8))
+    self.write_byte(reg.sp, rshift(band(reg[1], 0xFF00), 8))
     reg.sp = band(0xFFFF, reg.sp - 1)
-    self.write_byte(reg.sp, band(reg.pc, 0xFF))
+    self.write_byte(reg.sp, band(reg[1], 0xFF))
 
-    reg.pc = address
+    reg[1] = address
   end
 
   -- rst N

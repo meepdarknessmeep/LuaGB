@@ -6,15 +6,15 @@ local band = bit32.band
 function apply(opcodes, opcode_cycles)
 
   local function set_inc_flags (flags, value)
-    flags.z = value == 0
-    flags.h = value % 0x10 == 0x0
-    flags.n = false
+    flags[1] = value == 0
+    flags[3] = value % 0x10 == 0x0
+    flags[2] = false
   end
 
   local function set_dec_flags (flags, value)
-    flags.z = value == 0
-    flags.h = value % 0x10 == 0xF
-    flags.n = true
+    flags[1] = value == 0
+    flags[3] = value % 0x10 == 0xF
+    flags[2] = true
   end
 
   -- inc r

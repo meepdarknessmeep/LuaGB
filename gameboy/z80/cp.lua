@@ -2,16 +2,16 @@ function apply(opcodes, opcode_cycles)
 
   local function cp_with_a (reg, flags, value)
     -- half-carry
-    flags.h = (reg.a % 0x10) - (value % 0x10) < 0
+    flags[3] = (reg.a % 0x10) - (value % 0x10) < 0
 
     local temp = reg.a - value
 
     -- carry (and overflow correction)
-    flags.c = temp < 0 or temp > 0xFF
+    flags[4] = temp < 0 or temp > 0xFF
     temp  = (temp + 0x100) % 0x100
 
-    flags.z = temp == 0
-    flags.n = true
+    flags[1] = temp == 0
+    flags[2] = true
   end
 
   -- cp A, r

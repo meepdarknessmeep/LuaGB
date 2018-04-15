@@ -7,10 +7,10 @@ local bor = bit32.bor
 function apply(opcodes, opcode_cycles, z80, memory)
   local function and_a_with (reg, flags, value)
     reg.a = band(reg.a, value)
-    flags.z = reg.a == 0
-    flags.n = false
-    flags.h = true
-    flags.c = false
+    flags[1] = reg.a == 0
+    flags[2] = false
+    flags[3] = true
+    flags[4] = false
   end
 
   -- and A, r
@@ -24,10 +24,10 @@ function apply(opcodes, opcode_cycles, z80, memory)
   opcodes[0xA6] = function(self, reg, flags) and_a_with(reg, flags, self.read_at_hl()) end
   opcodes[0xA7] = function(self, reg, flags)
     --reg.a = band(reg.a, value)
-    flags.z = reg.a == 0
-    flags.n = false
-    flags.h = true
-    flags.c = false
+    flags[1] = reg.a == 0
+    flags[2] = false
+    flags[3] = true
+    flags[4] = false
   end
 
   -- and A, nn
@@ -36,10 +36,10 @@ function apply(opcodes, opcode_cycles, z80, memory)
 
   local function xor_a_with (reg, flags, value)
     reg.a = bxor(reg.a, value)
-    flags.z = reg.a == 0
-    flags.n = false
-    flags.h = false
-    flags.c = false
+    flags[1] = reg.a == 0
+    flags[2] = false
+    flags[3] = false
+    flags[4] = false
   end
 
   -- xor A, r
@@ -53,10 +53,10 @@ function apply(opcodes, opcode_cycles, z80, memory)
   opcodes[0xAE] = function(self, reg, flags) xor_a_with(reg, flags, self.read_at_hl()) end
   opcodes[0xAF] = function(self, reg, flags)
     reg.a = 0
-    flags.z = true
-    flags.n = false
-    flags.h = false
-    flags.c = false
+    flags[1] = true
+    flags[2] = false
+    flags[3] = false
+    flags[4] = false
   end
 
   -- xor A, nn
@@ -65,10 +65,10 @@ function apply(opcodes, opcode_cycles, z80, memory)
 
   local function or_a_with (reg, flags, value)
     reg.a = bor(reg.a, value)
-    flags.z = reg.a == 0
-    flags.n = false
-    flags.h = false
-    flags.c = false
+    flags[1] = reg.a == 0
+    flags[2] = false
+    flags[3] = false
+    flags[4] = false
   end
 
   -- or A, r
@@ -81,10 +81,10 @@ function apply(opcodes, opcode_cycles, z80, memory)
   opcode_cycles[0xB6] = 8
   opcodes[0xB6] = function(self, reg, flags) or_a_with(reg, flags, self.read_at_hl()) end
   opcodes[0xB7] = function(self, reg, flags)
-    flags.z = reg.a == 0
-    flags.n = false
-    flags.h = false
-    flags.c = false
+    flags[1] = reg.a == 0
+    flags[2] = false
+    flags[3] = false
+    flags[4] = false
   end
 
   -- or A, nn
@@ -94,8 +94,8 @@ function apply(opcodes, opcode_cycles, z80, memory)
   -- cpl
   opcodes[0x2F] = function(self, reg, flags)
     reg.a = bxor(reg.a, 0xFF)
-    flags.n = true
-    flags.h = true
+    flags[2] = true
+    flags[3] = true
   end
 end
 

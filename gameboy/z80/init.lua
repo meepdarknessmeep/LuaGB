@@ -21,6 +21,28 @@ local opcodes = {}
 local opcode_cycles = {}
 local opcode_names = {}
 
+local ffi, clock = require "ffi", os.clock
+if (ffi) then
+  print "found ffi"
+  ffi.cdef [[
+    extern int (__stdcall QueryPerformanceCounter)(uint64_t *lpPerformanceCount);
+    extern int (__stdcall QueryPerformanceFrequency)(uint64_t *lpFrequency);
+  ]]
+  local time = ffi.new "uint64_t[1]"
+  local freq = ffi.new "uint64_t[1]"
+
+  ffi.C.QueryPerformanceFrequency(freq)
+  clock = function()
+    ffi.C.QueryPerformanceCounter(time)
+    time[0] = time[0] * 1000000
+    time[0] = time[0] / freq[0]
+    return tonumber(time[0]) / 1000000
+  end
+else
+  print "no ffi"
+end
+
+
 -- Initialize the opcode_cycles table with 4 as a base cycle, so we only
 -- need to care about variations going forward
 for i = 0x00, 0xFF do
@@ -48,16 +70,16 @@ apply_stack(opcodes, opcode_cycles, z80, memory)
 -- ====== GMB CPU-Controlcommands ======
 -- ccf
 opcodes[0x3F] = function(self, reg, flags)
-  flags.c = not flags.c
-  flags.n = false
-  flags.h = false
+  flags[4] = not flags[4]
+  flags[2] = false
+  flags[3] = false
 end
 
 -- scf
 opcodes[0x37] = function(self, reg, flags)
-  flags.c = true
-  flags.n = false
-  flags.h = false
+  flags[4] = true
+  flags[2] = false
+  flags[3] = false
 end
 
 -- nop
@@ -123,7 +145,7 @@ end
 -- go ahead and "define" them with the following panic
 -- function
   local function undefined_opcode()
-    local opcode = read_byte(band(reg.pc - 1, 0xFFFF))
+    local opcode = read_byte(band(reg[1] - 1, 0xFFFF))
     print(string.format("Unhandled opcode!: %x", opcode))
   end
 
@@ -139,7 +161,8 @@ local Z80 = {}
 
 function Z80.new(modules)
   local z80 = {
-    modules = modules
+    modules = modules,
+    profiler = {}
   }
   for k, v in pairs(modules) do
     z80[k] = v
@@ -171,14 +194,17 @@ function Z80.new(modules)
   z80.double_speed = false
 
   z80.reset = function(gameboy)
+
+    z80.gameboy = gameboy
+
     -- Initialize registers to what the GB's
     -- iternal state would be after executing
     -- BIOS code
 
-    flags.z = true
-    flags.n = false
-    flags.h = true
-    flags.c = true
+    flags[1] = true
+    flags[2] = false
+    flags[3] = true
+    flags[4] = true
 
     if gameboy.type == gameboy.types.color then
       reg.a = 0x11
@@ -192,7 +218,7 @@ function Z80.new(modules)
     reg.e = 0xD8
     reg.h = 0x01
     reg.l = 0x4D
-    reg.pc = 0x100 --entrypoint for GB games
+    reg[1] = 0x100 --entrypoint for GB games
     reg.sp = 0xFFFE
 
     z80.halted = 0
@@ -213,10 +239,10 @@ function Z80.new(modules)
   z80.load_state = function(state)
     -- Note: doing this explicitly for safety, so as
     -- not to replace the table with external, possibly old / wrong structure
-    flags.z = state.registers.flags.z
-    flags.n = state.registers.flags.n
-    flags.h = state.registers.flags.h
-    flags.c = state.registers.flags.c
+    flags[1] = state.registers.flags[1]
+    flags[2] = state.registers.flags[2]
+    flags[3] = state.registers.flags[3]
+    flags[4] = state.registers.flags[4]
 
     z80.registers.a = state.registers.a
     z80.registers.b = state.registers.b
@@ -225,7 +251,7 @@ function Z80.new(modules)
     z80.registers.e = state.registers.e
     z80.registers.h = state.registers.h
     z80.registers.l = state.registers.l
-    z80.registers.pc = state.registers.pc
+    z80.registers[1] = state.registers[1]
     z80.registers.sp = state.registers.sp
 
     z80.double_speed = state.double_speed
@@ -241,16 +267,16 @@ function Z80.new(modules)
 
 
   function z80.read_at_hl()
-    return memory.block_map[reg.h * 0x100][reg.h * 0x100 + reg.l]
+    return memory.read_byte(reg.h * 0x100 + reg.l)
   end
 
   function z80.set_at_hl(value)
-    memory.block_map[reg.h * 0x100][reg.h * 0x100 + reg.l] = value
+    memory.write_byte(reg.h * 0x100 + reg.l, value)
   end
 
   function z80.read_nn()
-    local nn = read_byte(reg.pc)
-    reg.pc = reg.pc + 1
+    local nn = read_byte(reg[1])
+    reg[1] = reg[1] + 1
     return nn
   end
 
@@ -280,11 +306,11 @@ function Z80.new(modules)
         io.ram[0x0F] = bxor(lshift(0x1, count), io.ram[0x0F])
 
         reg.sp = band(0xFFFF, reg.sp - 1)
-        write_byte(reg.sp, rshift(band(reg.pc, 0xFF00), 8))
+        write_byte(reg.sp, rshift(band(reg[1], 0xFF00), 8))
         reg.sp = band(0xFFFF, reg.sp - 1)
-        write_byte(reg.sp, band(reg.pc, 0xFF))
+        write_byte(reg.sp, band(reg[1], 0xFF))
 
-        reg.pc = vector
+        reg[1] = vector
 
         z80:add_cycles(12)
         return true
@@ -297,13 +323,33 @@ function Z80.new(modules)
   interrupts.service_handler = z80.service_interrupt
 
   z80.process_instruction = function()
+    local profiling, start_time = z80.gameboy and z80.gameboy.profiling
     --  If the processor is currently halted, then do nothing.
     if z80.halted == 0 then
-      local opcode = read_byte(reg.pc)
+      local opcode = read_byte(reg[1])
       -- Advance to one byte beyond the opcode
-      reg.pc = band(reg.pc + 1, 0xFFFF)
+      reg[1] = band(reg[1] + 1, 0xFFFF)
       -- Run the instruction
+      if (profiling) then
+        start_time = clock()
+      end
+
       opcodes[opcode](z80, reg, flags)
+
+      if (profiling) then
+        local time_elapsed = clock() - start_time
+        local profile = z80.profiler[opcode]
+        if (not profile) then
+          profile = {
+            time = 0,
+            calls = 0
+          }
+          z80.profiler[opcode] = profile
+        end
+
+        profile.time = profile.time + time_elapsed
+        profile.calls = profile.calls + 1
+      end
 
       -- add a base clock of 4 to every instruction
       -- NOPE, working on removing add_cycles, pull from the opcode_cycles

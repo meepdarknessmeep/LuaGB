@@ -8,7 +8,7 @@ function apply(opcodes, opcode_cycles)
   local function jump_to_nnnn (self, reg)
     local lower = self.read_nn()
     local upper = lshift(self.read_nn(), 8)
-    reg.pc = upper + lower
+    reg[1] = upper + lower
   end
 
   -- jp nnnn
@@ -19,16 +19,16 @@ function apply(opcodes, opcode_cycles)
 
   -- jp HL
   opcodes[0xE9] = function(self, reg, flags)
-    reg.pc = reg.hl()
+    reg[1] = reg.hl()
   end
 
   -- jp nz, nnnn
   opcode_cycles[0xC2] = 16
   opcodes[0xC2] = function(self, reg, flags)
-    if not flags.z then
+    if not flags[1] then
       jump_to_nnnn(self, reg)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
       self:add_cycles(-4)
     end
   end
@@ -36,10 +36,10 @@ function apply(opcodes, opcode_cycles)
   -- jp nc, nnnn
   opcode_cycles[0xD2] = 16
   opcodes[0xD2] = function(self, reg, flags)
-    if not flags.c then
+    if not flags[4] then
       jump_to_nnnn(self, reg)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
       self:add_cycles(-4)
     end
   end
@@ -47,10 +47,10 @@ function apply(opcodes, opcode_cycles)
   -- jp z, nnnn
   opcode_cycles[0xCA] = 16
   opcodes[0xCA] = function(self, reg, flags)
-    if flags.z then
+    if flags[1] then
       jump_to_nnnn(self, reg)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
       self:add_cycles(-4)
     end
   end
@@ -58,10 +58,10 @@ function apply(opcodes, opcode_cycles)
   -- jp c, nnnn
   opcode_cycles[0xDA] = 16
   opcodes[0xDA] = function(self, reg, flags)
-    if flags.c then
+    if flags[4] then
       jump_to_nnnn(self, reg)
     else
-      reg.pc = reg.pc + 2
+      reg[1] = reg[1] + 2
       self:add_cycles(-4)
     end
   end
@@ -71,7 +71,7 @@ function apply(opcodes, opcode_cycles)
     if offset > 127 then
       offset = offset - 256
     end
-    reg.pc = (reg.pc + offset) % 0x10000
+    reg[1] = (reg[1] + offset) % 0x10000
   end
 
   -- jr nn
@@ -83,10 +83,10 @@ function apply(opcodes, opcode_cycles)
   -- jr nz, nn
   opcode_cycles[0x20] = 12
   opcodes[0x20] = function(self, reg, flags)
-    if not flags.z then
+    if not flags[1] then
       jump_relative_to_nn(self, reg)
     else
-      reg.pc = reg.pc + 1
+      reg[1] = reg[1] + 1
       self:add_cycles(-4)
     end
   end
@@ -94,10 +94,10 @@ function apply(opcodes, opcode_cycles)
   -- jr nc, nn
   opcode_cycles[0x30] = 12
   opcodes[0x30] = function(self, reg, flags)
-    if not flags.c then
+    if not flags[4] then
       jump_relative_to_nn(self, reg)
     else
-      reg.pc = reg.pc + 1
+      reg[1] = reg[1] + 1
       self:add_cycles(-4)
     end
   end
@@ -105,10 +105,10 @@ function apply(opcodes, opcode_cycles)
   -- jr z, nn
   opcode_cycles[0x28] = 12
   opcodes[0x28] = function(self, reg, flags)
-    if flags.z then
+    if flags[1] then
       jump_relative_to_nn(self, reg)
     else
-      reg.pc = reg.pc + 1
+      reg[1] = reg[1] + 1
       self:add_cycles(-4)
     end
   end
@@ -116,10 +116,10 @@ function apply(opcodes, opcode_cycles)
   -- jr c, nn
   opcode_cycles[0x38] = 12
   opcodes[0x38] = function(self, reg, flags)
-    if flags.c then
+    if flags[4] then
       jump_relative_to_nn(self, reg)
     else
-      reg.pc = reg.pc + 1
+      reg[1] = reg[1] + 1
       self:add_cycles(-4)
     end
   end
