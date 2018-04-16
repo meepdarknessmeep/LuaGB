@@ -4,38 +4,37 @@ local brshift = bit32.rshift
 
 local Memory = {}
 
+local function loadtable(narr)
+  local tbl = {}
+  for i = 0, narr - 1 do
+    tbl[i] = 0
+  end
+  return tbl
+end
+
+if (jit) then -- enable jit optimizations
+  local initializer = {}
+  for i = 1, 0x7ff do
+    initializer[i] = 0
+  end
+  function loadtable(narr)
+      return {unpack(initializer, 1, narr)}
+  end
+end
+
 function Memory.new(modules)
   local memory = {}
 
-  local invalid_map_mt = {
-    __index = function(self, offset)
-      error(string.format("failure to read data from %04X", offset + self.base))
-    end,
-    __newindex = function(self, offset, value)
-      error(string.format("failure to write data from %04X", offset + self.base))
-    end,
-    __eq = function() return true end
-  }
-  setmetatable(invalid_map_mt, invalid_map_mt)
-
   -- high byte index
-  local high_byte_base_address = {[0] = 0}
-  local high_byte_map = {[0] = setmetatable({base = 0}, invalid_map_mt)}
-  for i = 1, 0xff do
-    local base = bit.lshift(i, 8)
-    table.insert(high_byte_base_address, base)
-    table.insert(high_byte_map, setmetatable({
-      base = base
-    }, invalid_map_mt))
-  end
-
+  local high_byte_base_address = loadtable(256)
+  local high_byte_map = loadtable(256)
 
   memory.print_block_map = function()
     --debug
     print("Block Map: ")
     for b = 0, 0xFF do
       local map = high_byte_map[b]
-      if (map ~= invalid_map_mt) then
+      if (map ~= 0) then
         print(string.format("Block at: %02X starts at %04X", b, map.base))
       end
     end
@@ -54,7 +53,7 @@ function Memory.new(modules)
       high_byte_map[i] = mapped_block
     end
 
-    memory.print_block_map()
+    --memory.print_block_map()
   end
 
   memory.generate_block = function(size, starting_address)

@@ -325,7 +325,7 @@ function Z80.new(modules)
 
   z80.process_instruction = function()
     local profiling, start_time, fake_opcode, extrabits = z80.gameboy and z80.gameboy.profiling
-    --  If the processor is currently halted, then do nothing.
+    --  If the processor is currently halted, then do nothing.d
     if z80.halted == 0 then
       local opcode = read_byte(reg[1])
       -- Advance to one byte beyond the opcode
@@ -334,7 +334,7 @@ function Z80.new(modules)
       if (profiling) then
         fake_opcode = opcode
         extrabits = 0
-        if (opcode == 0xE0) then -- io write
+        if (opcode == 0xE0 or opcode == 0xF0) then -- io write
           fake_opcode = bit.lshift(opcode, 8) + read_byte(reg[1])
           extrabits = 8
         end
