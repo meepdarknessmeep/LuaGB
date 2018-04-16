@@ -12,10 +12,12 @@ function apply(opcodes, opcode_cycles)
     -- at this point, reg[1] points at the next instruction after the call,
     -- so store the current PC to the stack
 
-    reg[2] = (reg[2] + 0xFFFF) % 0x10000
-    self.write_byte(reg[2], rshift(reg[1], 8))
-    reg[2] = (reg[2] + 0xFFFF) % 0x10000
-    self.write_byte(reg[2], reg[1] % 0x100)
+    local sp = reg[2]
+
+    self.write_byte((sp + 0xFFFF) % 0x10000, rshift(reg[1], 8))
+    sp = (sp + 0xFFFE) % 0x10000
+    reg[2] = sp
+    self.write_byte(sp, reg[1] % 0x100)
 
     reg[1] = upper + lower
   end

@@ -29,15 +29,15 @@ function Input.new(modules)
                   bit32.lshift(input.keys.Start, 3)
 
     local active_bits = 0
-    if bit32.band(io.ram[io.ports.JOYP], 0x20) == 0 then
+    if bit32.band(io[io.ports.JOYP], 0x20) == 0 then
       active_bits = bit32.bor(active_bits, button_bits)
     end
-    if bit32.band(io.ram[io.ports.JOYP], 0x10) == 0 then
+    if bit32.band(io[io.ports.JOYP], 0x10) == 0 then
       active_bits = bit32.bor(active_bits, d_pad_bits)
     end
     active_bits = bit32.bnot(active_bits)
 
-    io.ram[io.ports.JOYP] = bit32.bor(0xC0, bit32.band(io.ram[io.ports.JOYP], 0x30), bit32.band(active_bits, 0x0F))
+    io[io.ports.JOYP] = bit32.bor(0xC0, bit32.band(io[io.ports.JOYP], 0x30), bit32.band(active_bits, 0x0F))
   end
 
   local snes_packet_names = {}
@@ -98,7 +98,7 @@ function Input.new(modules)
 
   -- Register hooks for input-related registers
   io.write_logic[io.ports.JOYP] = function(byte)
-    io.ram[io.ports.JOYP] = bit32.band(byte, 0x30)
+    io[io.ports.JOYP] = bit32.band(byte, 0x30)
     input.update()
 
     local pulse = bit32.rshift(bit32.band(byte, 0x30), 4)

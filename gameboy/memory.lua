@@ -18,97 +18,49 @@ if (jit) then -- enable jit optimizations
     initializer[i] = 0
   end
   function loadtable(narr)
-      return {unpack(initializer, 1, narr)}
+      local t = {[0] = 0, unpack(initializer, 1, math.min(0x7ff, narr))}
+      for i = 0x800, narr do
+        t[i] = 0
+      end
+      return t
   end
 end
 
 function Memory.new(modules)
-  local memory = {}
 
-  -- high byte index
-  local high_byte_base_address = loadtable(256)
-  local high_byte_map = loadtable(256)
+  local memory_mt = {}
 
-  memory.print_block_map = function()
-    --debug
-    print("Block Map: ")
-    for b = 0, 0xFF do
-      local map = high_byte_map[b]
-      if (map ~= 0) then
-        print(string.format("Block at: %02X starts at %04X", b, map.base))
-      end
+  local memory = setmetatable(loadtable(0xFFFF), memory_mt)
+
+  memory.hooks = {}
+
+  function memory:create_block(size)
+    return loadtable(size)
+  end
+
+  function memory:install_hooks(address_start, size, hooks)
+    local hook = {
+      hooks.getter,
+      hooks.setter,
+      hooks
+    }
+    for address = address_start, address_start + size - 1 do
+      -- hooks.setter(hooks, address, self[address])
+      rawset(self, address, nil)
+      self.hooks[address] = hook
     end
   end
 
-  memory.map_block = function(starting_high_byte, ending_high_byte, mapped_block, starting_address)
-    if starting_high_byte > 0xFF or ending_high_byte > 0xFF then
-      print("Bad block, bailing", starting_high_byte, ending_high_byte)
-      return
-    end
-
-    rawset(mapped_block, "base", bit.lshift(starting_high_byte, 8))
-
-    for i = starting_high_byte, ending_high_byte do
-      high_byte_base_address[i] = mapped_block.base
-      high_byte_map[i] = mapped_block
-    end
-
-    --memory.print_block_map()
-  end
-
-  memory.generate_block = function(size, starting_address)
-    starting_address = starting_address or 0
-    local block = {}
-    for i = starting_address, starting_address + size - 1 do
-      block[i] = 0
-    end
-    return block
-  end
-
-  local echo_mt = {
-    __index = function(self, offset)
-      return self.echo[offset - self.base + self.echo.base]
-    end,
-    __newindex = function(self, offset, value)
-      self.echo[offset - self.base + self.echo.base] = value
-    end
-  }
-
-  -- Main Memory
-  memory.work_ram_0 = memory.generate_block(4 * 1024, 0xC000)
-  memory.work_ram_1_raw = memory.generate_block(4 * 7 * 1024, 0xD000)
-  memory.work_ram_1 = {}
-  memory.work_ram_1.bank = 1
-  memory.work_ram_1.mt = {}
-  memory.work_ram_1.mt.__index = function(table, address)
-    return memory.work_ram_1_raw[address + ((memory.work_ram_1.bank - 1) * 4 * 1024)]
-  end
-  memory.work_ram_1.mt.__newindex = function(table, address, value)
-    memory.work_ram_1_raw[address + ((memory.work_ram_1.bank - 1) * 4 * 1024)] = value
-  end
-  setmetatable(memory.work_ram_1, memory.work_ram_1.mt)
-  memory.map_block(0xC0, 0xCF, memory.work_ram_0, 0)
-  memory.map_block(0xE0, 0xEF, setmetatable({
-    echo = memory.work_ram_0
-  }, echo_mt))
-  memory.map_block(0xD0, 0xDF, memory.work_ram_1, 0)
-  memory.map_block(0xF0, 0xFD, setmetatable({
-    echo = memory.work_ram_1
-  }, echo_mt))
 
   memory.read_byte = function(address)
-    local high_byte = brshift(address, 8)
-    return high_byte_map[high_byte][address]
+    return memory[address]
   end
 
   memory.write_byte = function(address, byte)
-    local high_byte = brshift(address, 8)
-    high_byte_map[high_byte][address] = byte
+    memory[address] = byte
   end
 
-  memory.get_map = function(high_byte)
-    return high_byte_map[high_byte]
-  end
+  local wram1
 
   memory.reset = function()
     -- It's tempting to want to zero out all 0x0000-0xFFFF, but
@@ -117,14 +69,14 @@ function Memory.new(modules)
     -- elsewhere as appropriate.
 
     for i = 0xC000, 0xCFFF do
-      memory.work_ram_0[i] = 0
+      memory[i] = 0
     end
 
     for i = 0xD000, 0xDFFF do
-      memory.work_ram_1[i] = 0
+      memory[i] = 0
     end
 
-    memory.work_ram_1.bank = 1
+    wram1.bank = 1
   end
 
   memory.save_state = function()
@@ -156,16 +108,66 @@ function Memory.new(modules)
     memory.work_ram_1.bank = state.work_ram_1_bank
   end
 
-  -- Fancy: make access to ourselves act as an array, reading / writing memory using the above
-  -- logic. This should cause memory[address] to behave just as it would on hardware.
-  memory.mt = {}
-  memory.mt.__index = function(table, key)
-    return memory.read_byte(key)
+  
+
+  function memory:__tostring()
+    return "Gameboy MMU"
   end
-  memory.mt.__newindex = function(table, key, value)
-    memory.write_byte(key, value)
+
+  function memory_mt:__index(n)
+    local hook = self.hooks[n]
+    if (hook) then
+      return hook[1](hook[3], n)
+    end
+    return self[n % 0x10000]
   end
-  setmetatable(memory, memory.mt)
+
+  function memory_mt:__newindex(n, v)
+    local hook = self.hooks[n]
+    if (hook) then
+      return hook[2](hook[3], n, v)
+    end
+    self[n % 0x10000] = n
+  end
+
+
+  local wram0 = memory:create_block(4 * 1024)
+
+  function wram0:getter(addr)
+    return self[addr - 0xC000]
+  end
+  function wram0:setter(addr, value)
+    self[addr - 0xC000] = value
+  end
+  memory:install_hooks(0xC000, #wram0, wram0)
+
+  function wram0:getter(addr)
+    return self[addr - 0xE000]
+  end
+  function wram0:setter(addr, value)
+    self[addr - 0xE000] = value
+  end
+  memory:install_hooks(0xE000, #wram0, wram0)
+
+
+  wram1 = loadtable(4 * 7 * 1024)
+  wram1.bank = 0
+
+  function wram1:getter(addr)
+    return self[addr - 0xD000 + self.bank * 4096]
+  end
+  function wram1:setter(addr, value)
+    self[addr - 0xD000 + self.bank * 4096] = value
+  end
+  memory:install_hooks(0xD000, 0x1000, wram1)
+
+  function wram1:getter(addr)
+    return self[addr - 0xF000 + self.bank * 4096]
+  end
+  function wram1:setter(addr, value)
+    self[addr - 0xF000 + self.bank * 4096] = value
+  end
+  memory:install_hooks(0xF000, 0xE00, wram1)
 
   return memory
 end

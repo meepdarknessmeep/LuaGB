@@ -66,7 +66,7 @@ function Palette.new(graphics, modules)
 
   -- DMG palettes
   io.write_logic[ports.BGP] = function(byte)
-    io.ram[ports.BGP] = byte
+    io[ports.BGP] = byte
     for i = 0, 3 do
       palette.bg[i] = getColorFromIndex(i, byte)
     end
@@ -74,7 +74,7 @@ function Palette.new(graphics, modules)
   end
 
   io.write_logic[ports.OBP0] = function(byte)
-    io.ram[ports.OBP0] = byte
+    io[ports.OBP0] = byte
     for i = 0, 3 do
       palette.obj0[i] = getColorFromIndex(i, byte)
     end
@@ -82,7 +82,7 @@ function Palette.new(graphics, modules)
   end
 
   io.write_logic[ports.OBP1] = function(byte)
-    io.ram[ports.OBP1] = byte
+    io[ports.OBP1] = byte
     for i = 0, 3 do
       palette.obj1[i] = getColorFromIndex(i, byte)
     end
@@ -96,7 +96,7 @@ function Palette.new(graphics, modules)
 
   -- Color Palettes
   io.write_logic[0x68] = function(byte)
-    io.ram[0x68] = byte
+    io[0x68] = byte
     palette.color_bg_index = bit32.band(byte, 0x3F)
     palette.color_bg_auto_increment = bit32.band(byte, 0x80) ~= 0
   end
@@ -128,7 +128,7 @@ function Palette.new(graphics, modules)
   end
 
   io.write_logic[0x6A] = function(byte)
-    io.ram[0x6A] = byte
+    io[0x6A] = byte
     palette.color_obj_index = bit32.band(byte, 0x3F)
     palette.color_obj_auto_increment = bit32.band(byte, 0x80) ~= 0
   end

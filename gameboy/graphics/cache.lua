@@ -79,10 +79,10 @@ function Cache.new(graphics)
   end
 
   cache.refreshOamEntry = function(index)
-    local y = graphics.oam[0xFE00 + index * 4 + 0] - 16
-    local x = graphics.oam[0xFE00 + index * 4 + 1] - 8
-    local tile_index = graphics.oam[0xFE00 + index * 4 + 2]
-    local flags = graphics.oam[0xFE00 + index * 4 + 3]
+    local y = graphics.oam[index * 4 + 0] - 16
+    local x = graphics.oam[index * 4 + 1] - 8
+    local tile_index = graphics.oam[index * 4 + 2]
+    local flags = graphics.oam[index * 4 + 3]
 
     cache.oam[index].x = x
     cache.oam[index].y = y
@@ -130,7 +130,7 @@ function Cache.new(graphics)
 
   cache.refreshTile = function(address, bank)
     -- Update the cached tile data
-    local tile_index = math.floor((address - 0x8000) / 16) + (384 * bank)
+    local tile_index = math.floor(address / 16) + (384 * bank)
     local y = math.floor((address % 16) / 2)
     -- kill the lower bit
     address = bit32.band(address, 0xFFFE)
@@ -146,8 +146,8 @@ function Cache.new(graphics)
   cache.refreshTiles = function()
     for i = 0, 384 - 1 do
       for y = 0, 7 do
-        cache.refreshTile(0x8000 + i * 16 + y * 2, 0)
-        cache.refreshTile(0x8000 + i * 16 + y * 2, 1)
+        cache.refreshTile(i * 16 + y * 2, 0)
+        cache.refreshTile(i * 16 + y * 2, 1)
       end
     end
   end
@@ -180,15 +180,15 @@ function Cache.new(graphics)
   end
 
   cache.refreshTileMaps = function()
-    cache.refreshTileMap(0x9800, cache.map_0, cache.map_0_attr)
-    cache.refreshTileMap(0x9C00, cache.map_1, cache.map_1_attr)
+    cache.refreshTileMap(0x1800, cache.map_0, cache.map_0_attr)
+    cache.refreshTileMap(0x1C00, cache.map_1, cache.map_1_attr)
   end
 
   cache.refreshTileAttributes = function()
     for x = 0, 31 do
       for y = 0, 31 do
-        cache.refreshAttributes(cache.map_0_attr, x, y, 0x9800 + (y * 32) + x)
-        cache.refreshAttributes(cache.map_1_attr, x, y, 0x9C00 + (y * 32) + x)
+        cache.refreshAttributes(cache.map_0_attr, x, y, 0x1800 + (y * 32) + x)
+        cache.refreshAttributes(cache.map_1_attr, x, y, 0x1C00 + (y * 32) + x)
       end
     end
   end

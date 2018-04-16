@@ -42,66 +42,53 @@ function Graphics.new(modules)
   graphics.lcd = {}
 
   -- Initialize VRAM blocks in main memory
-  graphics.vram = memory.generate_block(16 * 2 * 1024, 0x8000)
+  graphics.vram = memory:create_block(16 * 2 * 1024) -- memory.generate_block(16 * 2 * 1024, 0x8000)
   graphics.vram.bank = 0
-  graphics.vram_map = {}
-  graphics.vram_map.mt = {}
-  graphics.vram_map.mt.__index = function(table, address)
-    return graphics.vram[address + (16 * 1024 * graphics.vram.bank)]
+  function graphics.vram:getter(address)
+    return self[address - 0x8000 + (16 * 1024 * self.bank)]
   end
-  graphics.vram_map.mt.__newindex = function(table, address, value)
-    graphics.vram[address + (16 * 1024 * graphics.vram.bank)] = value
-    if address >= 0x8000 and address <= 0x97FF then
-      graphics.cache.refreshTile(address, graphics.vram.bank)
+  function graphics.vram:setter(address, value)
+    local offset = address - 0x8000
+    self[offset + (0x4000 * self.bank)] = value
+    if (offset <= 0x17FF) then
+      graphics.cache.refreshTile(offset, self.bank)
     end
     if address >= 0x9800 and address <= 0x9BFF then
       local x = address % 32
       local y = math.floor((address - 0x9800) / 32)
-      if graphics.vram.bank == 1 then
-        graphics.cache.refreshAttributes(graphics.cache.map_0_attr, x, y, address)
+      if self.bank == 1 then
+        graphics.cache.refreshAttributes(graphics.cache.map_0_attr, x, y, offset)
       end
-      graphics.cache.refreshTileIndex(x, y, 0x9800, graphics.cache.map_0, graphics.cache.map_0_attr)
+      graphics.cache.refreshTileIndex(x, y, 0x1800, graphics.cache.map_0, graphics.cache.map_0_attr)
     end
     if address >= 0x9C00 and address <= 0x9FFF then
       local x = address % 32
       local y = math.floor((address - 0x9C00) / 32)
-      if graphics.vram.bank == 1 then
-        graphics.cache.refreshAttributes(graphics.cache.map_1_attr, x, y, address)
+      if self.bank == 1 then
+        graphics.cache.refreshAttributes(graphics.cache.map_1_attr, x, y, offset)
       end
-      graphics.cache.refreshTileIndex(x, y, 0x9C00, graphics.cache.map_1, graphics.cache.map_1_attr)
+      graphics.cache.refreshTileIndex(x, y, 0x1C00, graphics.cache.map_1, graphics.cache.map_1_attr)
     end
   end
-  setmetatable(graphics.vram_map, graphics.vram_map.mt)
-  memory.map_block(0x80, 0x9F, graphics.vram_map, 0)
+  memory:install_hooks(0x8000, 0x2000, graphics.vram)
 
-  graphics.oam_raw = memory.generate_block(0xA0, 0xFE00)
-  graphics.oam = {}
-  graphics.oam.mt = {}
-  graphics.oam.mt.__index = function(table, address)
-    if address <= 0xFE9F then
-      return graphics.oam_raw[address]
-    end
-    -- out of range? So sorry, return nothing
-    return 0x00
+  graphics.oam = memory:create_block(0xA0) -- (0xA0, 0xFE00)
+  function graphics.oam:getter(address)
+    return self[address - 0xFE00]
   end
-  graphics.oam.mt.__newindex = function(table, address, byte)
-    if address <= 0xFE9F then
-      graphics.oam_raw[address] = byte
-      graphics.cache.refreshOamEntry(math.floor((address - 0xFE00) / 4))
-    end
-    -- out of range? So sorry, discard the write
-    return
+  function graphics.oam:setter(address, byte)
+    self[address - 0xFE00] = byte
+    graphics.cache.refreshOamEntry(math.floor((address - 0xFE00) / 4))
   end
-  setmetatable(graphics.oam, graphics.oam.mt)
-  memory.map_block(0xFE, 0xFE, graphics.oam, 0)
+  memory:install_hooks(0xFE00, 0xA0, graphics.oam)
 
   io.write_logic[0x4F] = function(byte)
     if graphics.gameboy.type == graphics.gameboy.types.color then
-      io.ram[0x4F] = bit32.band(0x1, byte)
+      io[0x4F] = bit32.band(0x1, byte)
       graphics.vram.bank = bit32.band(0x1, byte)
     else
       -- Not sure if the write mask should apply in DMG / SGB mode
-      io.ram[0x4F] = byte
+      io[0x4F] = byte
     end
   end
 
@@ -117,12 +104,12 @@ function Graphics.new(modules)
     graphics.palette.reset()
 
     -- zero out all of VRAM:
-    for i = 0x8000, (0x8000 + (16 * 2 * 1024) - 1) do
+    for i = 0, (16 * 2 * 1024) - 1 do
       graphics.vram[i] = 0
     end
 
     -- zero out all of OAM
-    for i = 0xFE00, 0xFE9F do
+    for i = 0, 0x9F do
       graphics.oam[i] = 0
     end
 
@@ -139,14 +126,14 @@ function Graphics.new(modules)
     local state = {}
 
     state.vram = {}
-    for i = 0x8000, (0x8000 + (16 * 2 * 1024) - 1) do
+    for i = 0, (16 * 2 * 1024) - 1 do
       state.vram[i] = graphics.vram[i]
     end
 
     state.vram_bank = graphics.vram.bank
 
     state.oam = {}
-    for i = 0xFE00, 0xFE9F do
+    for i = 0, 0x9F do
       state.oam[i] = graphics.oam[i]
     end
 
@@ -179,13 +166,13 @@ function Graphics.new(modules)
   end
 
   graphics.load_state = function(state)
-    for i = 0x8000, (0x8000 + (16 * 2 * 1024) - 1) do
+    for i = 0, (16 * 2 * 1024) - 1 do
       graphics.vram[i] = state.vram[i]
     end
 
     graphics.vram.bank = state.vram_bank
 
-    for i = 0xFE00, 0xFE9F do
+    for i = 0, 0x9F do
       graphics.oam[i] = state.oam[i]
     end
     graphics.vblank_count = state.vblank_count
@@ -208,8 +195,8 @@ function Graphics.new(modules)
     end
 
     graphics.cache.refreshAll()
-    io.write_logic[ports.STAT](io.ram[ports.STAT])
-    io.write_logic[ports.LCDC](io.ram[ports.LCDC])
+    io.write_logic[ports.STAT](io[ports.STAT])
+    io.write_logic[ports.LCDC](io[ports.LCDC])
   end
 
   local time_at_this_mode = function()
@@ -236,7 +223,7 @@ function Graphics.new(modules)
     local status = graphics.registers.status
 
     lcdstat =
-      (status.lyc_interrupt_enabled and io.ram[ports.LY] == io.ram[ports.LYC]) or
+      (status.lyc_interrupt_enabled and io[ports.LY] == io[ports.LYC]) or
       (status.oam_interrupt_enabled and status.mode == 2) or
       (status.vblank_interrupt_enabled and status.mode == 1) or
       (status.hblank_interrupt_enabled and status.mode == 0)
@@ -251,13 +238,13 @@ function Graphics.new(modules)
 
   io.write_logic[ports.LY] = function(byte)
     -- LY, writes reset the counter
-    io.ram[ports.LY] = 0
+    io[ports.LY] = 0
     graphics.refresh_lcdstat()
   end
 
   io.write_logic[ports.LYC] = function(byte)
     -- LY, writes reset the counter
-    io.ram[ports.LYC] = byte
+    io[ports.LYC] = byte
     graphics.refresh_lcdstat()
   end
 
@@ -266,16 +253,16 @@ function Graphics.new(modules)
   handle_mode[0] = function()
     if timers.system_clock - graphics.last_edge > 204 then
       graphics.last_edge = graphics.last_edge + 204
-      io.ram[ports.LY] = io.ram[ports.LY] + 1
-      if io.ram[ports.LY] == io.ram[ports.LYC] then
+      io[ports.LY] = io[ports.LY] + 1
+      if io[ports.LY] == io[ports.LYC] then
         -- set the LY compare bit
-        io.ram[ports.STAT] = bit32.bor(io.ram[ports.STAT], 0x4)
+        io[ports.STAT] = bit32.bor(io[ports.STAT], 0x4)
       else
         -- clear the LY compare bit
-        io.ram[ports.STAT] = bit32.band(io.ram[ports.STAT], 0xFB)
+        io[ports.STAT] = bit32.band(io[ports.STAT], 0xFB)
       end
 
-      if io.ram[ports.LY] >= 144 then
+      if io[ports.LY] >= 144 then
         graphics.registers.status.SetMode(1)
         graphics.vblank_count = graphics.vblank_count + 1
         interrupts.raise(interrupts.VBlank)
@@ -293,25 +280,25 @@ function Graphics.new(modules)
   handle_mode[1] = function()
     if timers.system_clock - graphics.last_edge > 456 then
       graphics.last_edge = graphics.last_edge + 456
-      io.ram[ports.LY] = io.ram[ports.LY] + 1
+      io[ports.LY] = io[ports.LY] + 1
       graphics.refresh_lcdstat()
     else
       graphics.next_edge = graphics.last_edge + 456
     end
 
-    if io.ram[ports.LY] >= 154 then
-      io.ram[ports.LY] = 0
+    if io[ports.LY] >= 154 then
+      io[ports.LY] = 0
       graphics.initialize_frame()
       graphics.registers.status.SetMode(2)
       graphics.refresh_lcdstat()
     end
 
-    if io.ram[ports.LY] == io.ram[ports.LYC] then
+    if io[ports.LY] == io[ports.LYC] then
       -- set the LY compare bit
-      io.ram[ports.STAT] = bit32.bor(io.ram[ports.STAT], 0x4)
+      io[ports.STAT] = bit32.bor(io[ports.STAT], 0x4)
     else
       -- clear the LY compare bit
-      io.ram[ports.STAT] = bit32.band(io.ram[ports.STAT], 0xFB)
+      io[ports.STAT] = bit32.band(io[ports.STAT], 0xFB)
     end
   end
 
@@ -332,7 +319,7 @@ function Graphics.new(modules)
     graphics.draw_next_pixels(duration)
     if timers.system_clock - graphics.last_edge > 172 then
       graphics.last_edge = graphics.last_edge + 172
-      graphics.draw_sprites_into_scanline(io.ram[ports.LY], scanline_data.bg_index, scanline_data.bg_priority)
+      graphics.draw_sprites_into_scanline(io[ports.LY], scanline_data.bg_index, scanline_data.bg_priority)
       graphics.registers.status.SetMode(0)
       -- If enabled, fire an HBlank interrupt
       graphics.refresh_lcdstat()
@@ -350,7 +337,7 @@ function Graphics.new(modules)
       graphics.last_edge = timers.system_clock
       graphics.next_edge = timers.system_clock
       graphics.registers.status.SetMode(0)
-      io.ram[ports.LY] = 0
+      io[ports.LY] = 0
       graphics.refresh_lcdstat()
     end
   end
@@ -367,21 +354,21 @@ function Graphics.new(modules)
 
   graphics.initialize_frame = function()
     -- latch WY at the beginning of the *frame*
-    frame_data.window_pos_y = io.ram[ports.WY]
+    frame_data.window_pos_y = io[ports.WY]
     frame_data.window_draw_y = 0
   end
 
   graphics.initialize_scanline = function()
     scanline_data.x = 0
 
-    scanline_data.bg_tile_x = math.floor(io.ram[ports.SCX] / 8)
-    scanline_data.bg_tile_y = math.floor((io.ram[ports.LY] + io.ram[ports.SCY]) / 8)
+    scanline_data.bg_tile_x = math.floor(io[ports.SCX] / 8)
+    scanline_data.bg_tile_y = math.floor((io[ports.LY] + io[ports.SCY]) / 8)
     if scanline_data.bg_tile_y >= 32 then
       scanline_data.bg_tile_y = scanline_data.bg_tile_y - 32
     end
 
-    scanline_data.sub_x = io.ram[ports.SCX] % 8
-    scanline_data.sub_y = (io.ram[ports.LY] + io.ram[ports.SCY]) % 8
+    scanline_data.sub_x = io[ports.SCX] % 8
+    scanline_data.sub_y = (io[ports.LY] + io[ports.SCY]) % 8
 
     scanline_data.current_map = graphics.registers.background_tilemap
     scanline_data.current_map_attr = graphics.registers.background_attr
@@ -392,8 +379,8 @@ function Graphics.new(modules)
   end
 
   graphics.switch_to_window = function()
-    local ly = io.ram[ports.LY]
-    local w_x = io.ram[ports.WX] - 7
+    local ly = io[ports.LY]
+    local w_x = io[ports.WX] - 7
     if graphics.registers.window_enabled and scanline_data.x >= w_x and ly >= frame_data.window_pos_y then
       -- switch to window map
       scanline_data.current_map = graphics.registers.window_tilemap
@@ -414,7 +401,7 @@ function Graphics.new(modules)
   end
 
   graphics.draw_next_pixels = function(duration)
-    local ly = io.ram[ports.LY]
+    local ly = io[ports.LY]
     local game_screen = graphics.game_screen
 
     while scanline_data.x < duration and scanline_data.x < 160 do
@@ -449,8 +436,8 @@ function Graphics.new(modules)
           scanline_data.bg_tile_x = scanline_data.bg_tile_x - 32
         end
         if not scanline_data.window_active then
-          scanline_data.sub_y = (ly + io.ram[ports.SCY]) % 8
-          scanline_data.bg_tile_y = math.floor((ly + io.ram[ports.SCY]) / 8)
+          scanline_data.sub_y = (ly + io[ports.SCY]) % 8
+          scanline_data.bg_tile_y = math.floor((ly + io[ports.SCY]) / 8)
           if scanline_data.bg_tile_y >= 32 then
             scanline_data.bg_tile_y = scanline_data.bg_tile_y - 32
           end

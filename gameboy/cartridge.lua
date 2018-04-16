@@ -21,7 +21,7 @@ function Cartridge.new(modules)
   local mbc3 = Mbc3.new()
   local mbc5 = Mbc5.new()
 
-  cartridge.external_ram = memory.generate_block(128 * 1024)
+  cartridge.external_ram = memory:create_block(128 * 1024)
   cartridge.external_ram.dirty = false
 
   local mbc_mappings = {}
@@ -52,9 +52,9 @@ function Cartridge.new(modules)
 
   cartridge.load = function(file_data, size)
     print("Reading cartridge into memory...")
-    cartridge.raw_data = {}
+    cartridge.raw_data = memory:create_block(size)
     for i = 0, size - 1 do
-      cartridge.raw_data[i] = file_data:byte(i + 1)
+      cartridge.raw_data[i] = file_data:byte(i + 1, i + 1)
     end
     print("Read " .. math.ceil(#cartridge.raw_data / 1024) .. " kB")
     cartridge.header = rom_header.parse_cartridge_header(cartridge.raw_data)
@@ -69,9 +69,9 @@ function Cartridge.new(modules)
       MBC.raw_data = cartridge.raw_data
       MBC.external_ram = cartridge.external_ram
       -- Cart ROM
-      memory.map_block(0x00, 0x7F, MBC)
+      memory:install_hooks(0x0000, 0x8000, MBC)
       -- External RAM
-      memory.map_block(0xA0, 0xBF, MBC, 0x0000)
+      memory:install_hooks(0xA000, 0x2000, MBC)
     else
       local MBC = mbc_mappings[0x00].mbc
       print("Unsupported MBC type! Defaulting to ROM ONLY, game will probably not boot.")

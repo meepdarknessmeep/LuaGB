@@ -21,7 +21,7 @@ function Registers.new(graphics, modules, cache)
   registers.oam_priority = false
 
   io.write_logic[ports.LCDC] = function(byte)
-    io.ram[ports.LCDC] = byte
+    io[ports.LCDC] = byte
 
     -- Unpack all the bit flags into lua variables, for great sanity
     registers.display_enabled = bit32.band(0x80, byte) ~= 0
@@ -73,7 +73,7 @@ function Registers.new(graphics, modules, cache)
 
   status.SetMode = function(mode)
     status.mode = mode
-    io.ram[ports.STAT] = bit32.band(io.ram[ports.STAT], 0xFC) + bit32.band(mode, 0x3)
+    io[ports.STAT] = bit32.band(io[ports.STAT], 0xFC) + bit32.band(mode, 0x3)
   end
 
   status.lyc_interrupt_enabled = false
@@ -82,7 +82,7 @@ function Registers.new(graphics, modules, cache)
   status.hblank_interrupt_enabled = false
 
   io.write_logic[ports.STAT] = function(byte)
-    io.ram[ports.STAT] = bit32.band(byte, 0x78)
+    io[ports.STAT] = bit32.band(byte, 0x78)
     status.lyc_interrupt_enabled = bit32.band(byte, 0x40) ~= 0
     status.oam_interrupt_enabled = bit32.band(byte, 0x20) ~= 0
     status.vblank_interrupt_enabled = bit32.band(byte, 0x10) ~= 0

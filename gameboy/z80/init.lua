@@ -110,19 +110,19 @@ opcodes[0x10] = function(self, reg, flags)
     print("Unimplemented WEIRDNESS after 0x10")
   end
 
-  if band(io.ram[0x4D], 0x01) ~= 0 then
+  if band(io[0x4D], 0x01) ~= 0 then
     --speed switch!
     print("Switching speeds!")
     if z80.double_speed then
       self.add_cycles = add_cycles_normal
       self.double_speed = false
-      io.ram[0x4D] = band(io.ram[0x4D], 0x7E) + 0x00
+      io[0x4D] = band(io[0x4D], 0x7E) + 0x00
       timers:set_normal_speed()
       print("Switched to Normal Speed")
     else
       self.add_cycles = add_cycles_double
       self.double_speed = true
-      io.ram[0x4D] = band(io.ram[0x4D], 0x7E) + 0x80
+      io[0x4D] = band(io[0x4D], 0x7E) + 0x80
       timers:set_double_speed()
       print("Switched to Double Speed")
     end
@@ -179,7 +179,6 @@ function Z80.new(modules)
 
   z80.write_byte = memory.write_byte
   z80.read_byte = memory.read_byte
-  z80.get_map = memory.get_map -- TODO: this is bad 
 
   z80.registers = Registers.new()
   local reg = z80.registers
@@ -281,13 +280,8 @@ function Z80.new(modules)
     return nn
   end
 
-  local read_at_hl = z80.read_at_hl
-  local set_at_hl = z80.set_at_hl
-  local read_nn = z80.read_nn
-
-
   z80.service_interrupt = function()
-    local fired = band(io.ram[0xFF], io.ram[0x0F])
+    local fired = band(io[0xFF], io[0x0F])
     if fired ~= 0 then
       z80.halted = 0
       if interrupts.enabled ~= 0 then
@@ -304,7 +298,7 @@ function Z80.new(modules)
           count = count + 1
         end
         -- we need to clear the corresponding bit first, to avoid infinite loops
-        io.ram[0x0F] = bxor(lshift(0x1, count), io.ram[0x0F])
+        io[0x0F] = bxor(lshift(0x1, count), io[0x0F])
 
         reg[2] = band(0xFFFF, reg[2] - 1)
         write_byte(reg[2], rshift(band(reg[1], 0xFF00), 8))

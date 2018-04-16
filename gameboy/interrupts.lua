@@ -26,19 +26,19 @@ function Interrupts.new(modules)
   end
 
   function interrupts.raise(bitmask)
-    io.ram[0x0F] = bit32.band(bit32.bor(io.ram[0x0F], bitmask), 0x1F)
+    io[0x0F] = bit32.band(bit32.bor(io[0x0F], bitmask), 0x1F)
     interrupts.service_handler()
   end
 
   io.write_logic[io.ports.IF] = function(byte)
-    io.ram[io.ports.IF] = byte
+    io[io.ports.IF] = byte
     if byte ~= 0 then
       interrupts.service_handler()
     end
   end
 
   io.write_logic[io.ports.IE] = function(byte)
-    io.ram[io.ports.IE] = byte
+    io[io.ports.IE] = byte
     if byte ~= 0 then
       interrupts.service_handler()
     end

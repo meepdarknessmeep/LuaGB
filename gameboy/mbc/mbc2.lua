@@ -8,31 +8,30 @@ function Mbc2.new()
   mbc2.external_ram = {}
   mbc2.rom_bank = 1
   mbc2.ram_enable = false
-  mbc2.mt = {}
-  mbc2.mt.__index = function(table, address)
+  function mbc2:getter(address)
     -- Lower 16k: return the first bank, always
     if address <= 0x3FFF then
-      return mbc2.raw_data[address]
+      return self.raw_data[address]
     end
     -- Upper 16k: return the currently selected bank
     if address >= 0x4000 and address <= 0x7FFF then
-      local rom_bank = mbc2.rom_bank
-      return mbc2.raw_data[(rom_bank * 16 * 1024) + (address - 0x4000)]
+      local rom_bank = self.rom_bank
+      return self.raw_data[(rom_bank * 16 * 1024) + (address - 0x4000)]
     end
 
-    if address >= 0xA000 and address <= 0xA1FF and mbc2.ram_enable then
+    if address >= 0xA000 and address <= 0xA1FF and self.ram_enable then
       -- For MBC2, only the lower 4 bits of each RAM byte are available for use
-      return bit32.band(0x0F, mbc2.external_ram[(address - 0xA000)])
+      return bit32.band(0x0F, self.external_ram[(address - 0xA000)])
     end
 
     return 0x00
   end
-  mbc2.mt.__newindex = function(table, address, value)
+  function mbc2:setter(address, value)
     if address <= 0x1FFF and bit32.band(address, 0x0100) == 0 then
       if bit32.band(0x0A, value) == 0x0A then
-        mbc2.ram_enable = true
+        self.ram_enable = true
       else
-        mbc2.ram_enable = false
+        self.ram_enable = false
       end
       return
     end
@@ -42,14 +41,14 @@ function Mbc2.new()
       if value == 0 then
         value = 1
       end
-      mbc2.rom_bank = value
+      self.rom_bank = value
       return
     end
 
     -- Handle actually writing to External RAM
-    if address >= 0xA000 and address <= 0xBFFF and mbc2.ram_enable then
-      mbc2.external_ram[(address - 0xA000)] = bit32.band(0x0F, value)
-      mbc2.external_ram.dirty = true
+    if address >= 0xA000 and address <= 0xBFFF and self.ram_enable then
+      self.external_ram[(address - 0xA000)] = bit32.band(0x0F, value)
+      self.external_ram.dirty = true
       return
     end
   end
@@ -69,8 +68,6 @@ function Mbc2.new()
     self.rom_bank = state_data.rom_bank
     self.ram_enable = state_data.ram_enable
   end
-
-  setmetatable(mbc2, mbc2.mt)
 
   return mbc2
 end
