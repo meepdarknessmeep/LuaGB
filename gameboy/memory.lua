@@ -1,6 +1,6 @@
 local bit32 = require("bit")
 
-local brshift = bit32.rshift
+local ffi = require "ffi"
 
 local Memory = {}
 
@@ -23,6 +23,14 @@ if (jit) then -- enable jit optimizations
         t[i] = 0
       end
       return t
+  end
+end
+
+local loadbytes = loadtable
+
+if (ffi) then
+  function loadbytes(narr)
+    return ffi.new("uint8_t[?]", narr + 1)
   end
 end
 
@@ -108,9 +116,8 @@ function Memory.new(modules)
     memory.work_ram_1.bank = state.work_ram_1_bank
   end
 
-  
 
-  function memory:__tostring()
+  function memory_mt:__tostring()
     return "Gameboy MMU"
   end
 
