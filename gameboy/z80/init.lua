@@ -219,6 +219,7 @@ function Z80.new(modules)
     timers:set_normal_speed()
   end
 
+  local print_opcodes = false
   z80.save_state = function()
     local state = {}
     state.double_speed = z80.double_speed
@@ -228,6 +229,7 @@ function Z80.new(modules)
   end
 
   z80.load_state = function(state)
+    print_opcodes = true
     -- Note: doing this explicitly for safety, so as
     -- not to replace the table with external, possibly old / wrong structure
     flags[1] = state.registers.flags[1]
@@ -243,7 +245,7 @@ function Z80.new(modules)
     z80.registers.h = state.registers.h
     z80.registers.l = state.registers.l
     z80.registers[1] = state.registers[1]
-    z80.registers[2] = state.registers.sp
+    z80.registers[2] = state.registers[2]
 
     z80.double_speed = state.double_speed
     if z80.double_speed then

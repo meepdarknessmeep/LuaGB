@@ -83,28 +83,28 @@ function Memory.new(modules)
 
     state.work_ram_0 = {}
     for i = 0xC000, 0xCFFF do
-      state.work_ram_0[i] = memory.work_ram_0[i]
+      state.work_ram_0[i] = memory[i]
     end
 
     state.work_ram_1_raw = {}
     for i = 0xD000, (0xD000 + (4 * 7 * 1024) - 1) do
-      state.work_ram_1_raw[i] = memory.work_ram_1_raw[i]
+      state.work_ram_1_raw[i] = memory[i]
     end
 
-    state.work_ram_1_bank = 1
+    state.work_ram_1_bank = wram1.bank
 
     return state
   end
 
   memory.load_state = function(state)
     for i = 0xC000, 0xCFFF do
-      memory.work_ram_0[i] = state.work_ram_0[i]
+      memory[i] = state.work_ram_0[i]
     end
     for i = 0xD000, (0xD000 + (4 * 7 * 1024) - 1) do
-      memory.work_ram_1_raw[i] = state.work_ram_1_raw[i]
+      memory[i] = state.work_ram_1_raw[i]
     end
 
-    memory.work_ram_1.bank = state.work_ram_1_bank
+    wram1.bank = state.work_ram_1_bank
   end
 
   function memory:initialize()
