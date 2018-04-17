@@ -141,8 +141,8 @@ end
 -- For any opcodes that at this point are undefined,
 -- go ahead and "define" them with the following panic
 -- function
-  local function undefined_opcode()
-    local opcode = memory[band(reg[1] - 1, 0xFFFF)]
+  local function undefined_opcode(self, reg, flags, mem)
+    local opcode = mem[band(reg[1] - 1, 0xFFFF)]
     print(string.format("Unhandled opcode!: %x", opcode))
   end
 

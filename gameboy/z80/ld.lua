@@ -251,7 +251,7 @@ opcode_cycles[0x70] = 8
   opcodes[0xF8] = function(self, reg, flags, mem)
     -- cheat
     local old_sp = reg.sp
-    opcodes[0xE8]()
+    opcodes[0xE8](self, reg, flags, mem)
     reg.set_hl(reg[2])
     reg[2] = old_sp
   end
