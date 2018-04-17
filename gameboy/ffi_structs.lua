@@ -1,7 +1,10 @@
 local ffi = require "ffi"
 
 ffi.cdef [[
-    // graphics/palette
+
+typedef uint16_t LuaGBAddress;
+
+// graphics/palette
 typedef uint8_t LuaGBPaletteColor[4];
 typedef struct _LuaGBPalette {
     LuaGBPaletteColor dmg_colors[4];
@@ -14,13 +17,24 @@ typedef struct _LuaGBPalette {
     void (*set_dmg_colors)(LuaGBPaletteColor, LuaGBPaletteColor, LuaGBPaletteColor, LuaGBPaletteColor);
     void (*reset)();
 } LuaGBPalette;
-    // graphics/cache
+
+// graphics/cache
 typedef struct _LuaGBTileAttribute {
     LuaGBPaletteColor *palette;
     uint8_t bank;
     bool horizontal_flip, vertical_flip, priority;
-} LuaGBTileAttritbute, (*LuaGBTileAttritbuteMapPtr)[32], LuaGBTileAttributeMap[32][32];
-typedef uint8_t LuaGBTile, *LuaGBTileList, (*LuaGBTileList2)[8], (*LuaGBTileListMapPtr)[8][8], LuaGBTileListMap[768][8][8], (*LuaGBTileMapPtr)[32][8][8], LuaGBTileMap[32][32][8][8];
+} LuaGBTileAttritbute,
+  (*LuaGBTileAttritbuteMapPtr)[32],
+  LuaGBTileAttributeMap[32][32];
+
+typedef uint8_t LuaGBTile,
+                *LuaGBTileList,
+                (*LuaGBTileList2)[8],
+                (*LuaGBTileListMapPtr)[8][8],
+                LuaGBTileListMap[768][8][8],
+                (*LuaGBTileMapPtr)[32][8][8],
+                LuaGBTileMap[32][32][8][8];
+
 typedef struct _LuaGBOAMEntry {
     uint8_t x;
     uint8_t y;
@@ -38,11 +52,11 @@ typedef struct _LuaGBTileCache {
     LuaGBOAM oam;
     void (*reset)();
     void (*refreshOamEntry)(uint8_t);
-    void (*refreshAttributes)(LuaGBTileAttritbuteMapPtr, uint8_t, uint8_t, uint16_t);
-    void (*refreshTile)(uint16_t, uint8_t);
+    void (*refreshAttributes)(LuaGBTileAttritbuteMapPtr, uint8_t, uint8_t, LuaGBAddress);
+    void (*refreshTile)(LuaGBAddress, uint8_t);
     void (*refreshTiles)();
-    void (*refreshTileIndex)(uint8_t, uint8_t, uint16_t, LuaGBTileMap, LuaGBTileAttributeMap);
-    void (*refreshTileMap)(uint16_t, LuaGBTileMap, LuaGBTileAttributeMap);
+    void (*refreshTileIndex)(uint8_t, uint8_t, LuaGBAddress, LuaGBTileMap, LuaGBTileAttributeMap);
+    void (*refreshTileMap)(LuaGBAddress, LuaGBTileMap, LuaGBTileAttributeMap);
     void (*refreshTileMaps)();
     void (*refreshTileAttributes)();
     void (*refreshAll)();
@@ -70,7 +84,7 @@ typedef struct _LuaGBGraphicRegisters {
     LuaGBTileAttritbuteMapPtr window_attr,
                               background_attr;
     bool window_enabled, background_enabled;
-    uint16_t tile_select;
+    LuaGBAddress tile_select;
     bool large_sprites,
          sprites_enabled,
          background_enabled,
