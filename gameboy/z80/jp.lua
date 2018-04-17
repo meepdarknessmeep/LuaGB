@@ -13,18 +13,18 @@ function apply(opcodes, opcode_cycles)
 
   -- jp nnnn
   opcode_cycles[0xC3] = 16
-  opcodes[0xC3] = function(self, reg, flags)
+  opcodes[0xC3] = function(self, reg, flags, mem)
     jump_to_nnnn(self, reg)
   end
 
   -- jp HL
-  opcodes[0xE9] = function(self, reg, flags)
+  opcodes[0xE9] = function(self, reg, flags, mem)
     reg[1] = reg.hl()
   end
 
   -- jp nz, nnnn
   opcode_cycles[0xC2] = 16
-  opcodes[0xC2] = function(self, reg, flags)
+  opcodes[0xC2] = function(self, reg, flags, mem)
     if not flags[1] then
       jump_to_nnnn(self, reg)
     else
@@ -35,7 +35,7 @@ function apply(opcodes, opcode_cycles)
 
   -- jp nc, nnnn
   opcode_cycles[0xD2] = 16
-  opcodes[0xD2] = function(self, reg, flags)
+  opcodes[0xD2] = function(self, reg, flags, mem)
     if not flags[4] then
       jump_to_nnnn(self, reg)
     else
@@ -46,7 +46,7 @@ function apply(opcodes, opcode_cycles)
 
   -- jp z, nnnn
   opcode_cycles[0xCA] = 16
-  opcodes[0xCA] = function(self, reg, flags)
+  opcodes[0xCA] = function(self, reg, flags, mem)
     if flags[1] then
       jump_to_nnnn(self, reg)
     else
@@ -57,7 +57,7 @@ function apply(opcodes, opcode_cycles)
 
   -- jp c, nnnn
   opcode_cycles[0xDA] = 16
-  opcodes[0xDA] = function(self, reg, flags)
+  opcodes[0xDA] = function(self, reg, flags, mem)
     if flags[4] then
       jump_to_nnnn(self, reg)
     else
@@ -76,13 +76,13 @@ function apply(opcodes, opcode_cycles)
 
   -- jr nn
   opcode_cycles[0x18] = 12
-  opcodes[0x18] = function(self, reg, flags)
+  opcodes[0x18] = function(self, reg, flags, mem)
     jump_relative_to_nn(self, reg)
   end
 
   -- jr nz, nn
   opcode_cycles[0x20] = 12
-  opcodes[0x20] = function(self, reg, flags)
+  opcodes[0x20] = function(self, reg, flags, mem)
     if not flags[1] then
       jump_relative_to_nn(self, reg)
     else
@@ -93,7 +93,7 @@ function apply(opcodes, opcode_cycles)
 
   -- jr nc, nn
   opcode_cycles[0x30] = 12
-  opcodes[0x30] = function(self, reg, flags)
+  opcodes[0x30] = function(self, reg, flags, mem)
     if not flags[4] then
       jump_relative_to_nn(self, reg)
     else
@@ -104,7 +104,7 @@ function apply(opcodes, opcode_cycles)
 
   -- jr z, nn
   opcode_cycles[0x28] = 12
-  opcodes[0x28] = function(self, reg, flags)
+  opcodes[0x28] = function(self, reg, flags, mem)
     if flags[1] then
       jump_relative_to_nn(self, reg)
     else
@@ -115,7 +115,7 @@ function apply(opcodes, opcode_cycles)
 
   -- jr c, nn
   opcode_cycles[0x38] = 12
-  opcodes[0x38] = function(self, reg, flags)
+  opcodes[0x38] = function(self, reg, flags, mem)
     if flags[4] then
       jump_relative_to_nn(self, reg)
     else

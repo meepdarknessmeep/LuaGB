@@ -61,29 +61,29 @@ apply_cp(opcodes, opcode_cycles)
 apply_inc_dec(opcodes, opcode_cycles)
 apply_jp(opcodes, opcode_cycles)
 apply_ld(opcodes, opcode_cycles)
-apply_rl_rr_cb(opcodes, opcode_cycles, z80, memory)
-apply_stack(opcodes, opcode_cycles, z80, memory)
+apply_rl_rr_cb(opcodes, opcode_cycles)
+apply_stack(opcodes, opcode_cycles)
 
 -- ====== GMB CPU-Controlcommands ======
 -- ccf
-opcodes[0x3F] = function(self, reg, flags)
+opcodes[0x3F] = function(self, reg, flags, mem)
   flags[4] = not flags[4]
   flags[2] = false
   flags[3] = false
 end
 
 -- scf
-opcodes[0x37] = function(self, reg, flags)
+opcodes[0x37] = function(self, reg, flags, mem)
   flags[4] = true
   flags[2] = false
   flags[3] = false
 end
 
 -- nop
-opcodes[0x00] = function(self, reg, flags) end
+opcodes[0x00] = function(self, reg, flags, mem) end
 
 -- halt
-opcodes[0x76] = function(self, reg, flags)
+opcodes[0x76] = function(self, reg, flags, mem)
   --if interrupts_enabled == 1 then
     --print("Halting!")
     self.halted = 1
@@ -93,13 +93,13 @@ opcodes[0x76] = function(self, reg, flags)
 end
 
 -- stop
-opcodes[0x10] = function(self, reg, flags)
+opcodes[0x10] = function(self, reg, flags, mem)
   -- The stop opcode should always, for unknown reasons, be followed
   -- by an 0x00 data byte. If it isn't, this may be a sign that the
   -- emulator has run off the deep end, and this isn't a real STOP
   -- instruction.
   -- TODO: Research real hardware's behavior in these cases
-  local stop_value = read_nn()
+  local stop_value = self.read_nn()
   if stop_value == 0x00 then
     print("STOP instruction not followed by NOP!")
     --halted = 1
@@ -107,7 +107,7 @@ opcodes[0x10] = function(self, reg, flags)
     print("Unimplemented WEIRDNESS after 0x10")
   end
 
-  if band(io[0x4D], 0x01) ~= 0 then
+  if band(self.io[0x4D], 0x01) ~= 0 then
     --speed switch!
     print("Switching speeds!")
     if z80.double_speed then
@@ -127,12 +127,12 @@ opcodes[0x10] = function(self, reg, flags)
 end
 
 -- di
-opcodes[0xF3] = function(self, reg, flags)
+opcodes[0xF3] = function(self, reg, flags, mem)
   self.interrupts.disable()
   --print("Disabled interrupts with DI")
 end
 -- ei
-opcodes[0xFB] = function(self, reg, flags)
+opcodes[0xFB] = function(self, reg, flags, mem)
   self.interrupts.enable()
   --print("Enabled interrupts with EI")
   self.service_interrupt()
@@ -142,7 +142,7 @@ end
 -- go ahead and "define" them with the following panic
 -- function
   local function undefined_opcode()
-    local opcode = read_byte(band(reg[1] - 1, 0xFFFF))
+    local opcode = memory[band(reg[1] - 1, 0xFFFF)]
     print(string.format("Unhandled opcode!: %x", opcode))
   end
 
@@ -166,17 +166,11 @@ function Z80.new(modules)
   end
 
   local interrupts = modules.interrupts
-  local io = modules.io
   local memory = modules.memory
   local timers = modules.timers
+  local io = modules.io
 
-  -- local references, for shorter code
-  local read_byte = memory.read_byte
-  local write_byte = memory.write_byte
-
-  z80.write_byte = memory.write_byte
-  z80.read_byte = memory.read_byte
-
+  z80.io = io
   z80.registers = Registers.new()
   local reg = z80.registers
   local flags = reg.flags
@@ -264,15 +258,15 @@ function Z80.new(modules)
 
 
   function z80.read_at_hl()
-    return memory.read_byte(reg.h * 0x100 + reg.l)
+    return memory[reg.h * 0x100 + reg.l]
   end
 
   function z80.set_at_hl(value)
-    memory.write_byte(reg.h * 0x100 + reg.l, value)
+    memory[reg.h * 0x100 + reg.l] = value
   end
 
   function z80.read_nn()
-    local nn = read_byte(reg[1])
+    local nn = memory[reg[1]]
     reg[1] = reg[1] + 1
     return nn
   end
@@ -298,9 +292,9 @@ function Z80.new(modules)
         io[0x0F] = bxor(lshift(0x1, count), io[0x0F])
 
         reg[2] = band(0xFFFF, reg[2] - 1)
-        write_byte(reg[2], rshift(band(reg[1], 0xFF00), 8))
+        memory[reg[2]] = rshift(band(reg[1], 0xFF00), 8)
         reg[2] = band(0xFFFF, reg[2] - 1)
-        write_byte(reg[2], band(reg[1], 0xFF))
+        memory[reg[2]] = band(reg[1], 0xFF)
 
         reg[1] = vector
 
@@ -318,7 +312,7 @@ function Z80.new(modules)
     local profiling, start_time, fake_opcode, extrabits = z80.gameboy and z80.gameboy.profiling
     --  If the processor is currently halted, then do nothing.d
     if z80.halted == 0 then
-      local opcode = read_byte(reg[1])
+      local opcode = memory[reg[1]]
       -- Advance to one byte beyond the opcode
       reg[1] = band(reg[1] + 1, 0xFFFF)
       -- Run the instruction
@@ -326,13 +320,13 @@ function Z80.new(modules)
         fake_opcode = opcode
         extrabits = 0
         if (opcode == 0xE0 or opcode == 0xF0) then -- io write
-          fake_opcode = bit.lshift(opcode, 8) + read_byte(reg[1])
+          fake_opcode = bit.lshift(opcode, 8) + memory[reg[1]]
           extrabits = 8
         end
         start_time = clock()
       end
 
-      opcodes[opcode](z80, reg, flags)
+      opcodes[opcode](z80, reg, flags, memory)
 
       if (profiling) then
         local time_elapsed = clock() - start_time

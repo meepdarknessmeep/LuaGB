@@ -1,5 +1,3 @@
-local bit32 = require("bit")
-
 local ffi = require "ffi"
 
 local Memory = {}
@@ -57,15 +55,6 @@ function Memory.new(modules)
       rawset(self, address, nil)
       self.hooks[address] = hook
     end
-  end
-
-
-  memory.read_byte = function(address)
-    return memory[address]
-  end
-
-  memory.write_byte = function(address, byte)
-    memory[address] = byte
   end
 
   local wram1

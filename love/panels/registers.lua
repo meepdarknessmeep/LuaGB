@@ -62,7 +62,7 @@ registers.print_wide_registers = function(gameboy, x, y)
     local r, g, b = register[1], register[2], register[3]
     local name, accessor = register[4], register[5]
     local value = gameboy.processor.registers[accessor]()
-    local indirect_value = gameboy.memory.read_byte(value)
+    local indirect_value = gameboy.memory[value]
 
     love.graphics.setColor(r, g, b)
     love.graphics.print(string.format("%s: %04X (%s): %02X", name, value, name, indirect_value), x, y + ry)
@@ -92,10 +92,10 @@ registers.print_pointer_registers = function(gameboy, x, y)
 
     love.graphics.setColor(r, g, b)
     love.graphics.print(string.format("%s: %04X (%s): %02X %02X %02X %02X", name, value, name,
-                                      gameboy.memory.read_byte(value),
-                                      gameboy.memory.read_byte(value + 1),
-                                      gameboy.memory.read_byte(value + 2),
-                                      gameboy.memory.read_byte(value + 3)), x, y + ry)
+                                      gameboy.memory[value],
+                                      gameboy.memory[value + 1],
+                                      gameboy.memory[value + 2],
+                                      gameboy.memory[value + 3]), x, y + ry)
     ry = ry + vertical_spacing
   end
 end
@@ -117,8 +117,8 @@ registers.print_status_block = function(gameboy, x, y)
   love.graphics.print(string.format("Halted: %d  IME: %d  IE: %02X  IF: %02X",
     gameboy.processor.halted,
     gameboy.interrupts.enabled,
-    gameboy.memory.read_byte(0xFFFF),
-    gameboy.memory.read_byte(0xFF0F)), x, y + vertical_spacing)
+    gameboy.memory[0xFFFF],
+    gameboy.memory[0xFF0F]), x, y + vertical_spacing)
 end
 
 registers.print_values = function(gameboy)

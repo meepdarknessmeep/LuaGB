@@ -71,60 +71,72 @@ function apply(opcodes, opcode_cycles)
   end
 
   -- rlc a
-  opcodes[0x07] = function(self, reg, flags) reg.a = reg_rlc(flags, reg.a); flags[1] = false end
+  opcodes[0x07] = function(self, reg, flags, mem) reg.a = reg_rlc(flags, reg.a); flags[1] = false end
 
   -- rl a
-  opcodes[0x17] = function(self, reg, flags) reg.a = reg_rl(flags, reg.a); flags[1] = false end
+  opcodes[0x17] = function(self, reg, flags, mem) reg.a = reg_rl(flags, reg.a); flags[1] = false end
 
   -- rrc a
-  opcodes[0x0F] = function(self, reg, flags) reg.a = reg_rrc(flags, reg.a); flags[1] = false end
+  opcodes[0x0F] = function(self, reg, flags, mem) reg.a = reg_rrc(flags, reg.a); flags[1] = false end
 
   -- rr a
-  opcodes[0x1F] = function(self, reg, flags) reg.a = reg_rr(flags, reg.a); flags[1] = false end
+  opcodes[0x1F] = function(self, reg, flags, mem) reg.a = reg_rr(flags, reg.a); flags[1] = false end
 
   -- ====== CB: Extended Rotate and Shift ======
 
   cb = {}
 
   -- rlc r
-  cb[0x00] = function(self, reg, flags) reg.b = reg_rlc(flags, reg.b); self:add_cycles(4) end
-  cb[0x01] = function(self, reg, flags) reg.c = reg_rlc(flags, reg.c); self:add_cycles(4) end
-  cb[0x02] = function(self, reg, flags) reg.d = reg_rlc(flags, reg.d); self:add_cycles(4) end
-  cb[0x03] = function(self, reg, flags) reg.e = reg_rlc(flags, reg.e); self:add_cycles(4) end
-  cb[0x04] = function(self, reg, flags) reg.h = reg_rlc(flags, reg.h); self:add_cycles(4) end
-  cb[0x05] = function(self, reg, flags) reg.l = reg_rlc(flags, reg.l); self:add_cycles(4) end
-  cb[0x06] = function(self, reg, flags) self.write_byte(reg.hl(), reg_rlc(flags, self.read_byte(reg.hl()))); self:add_cycles(12) end
-  cb[0x07] = function(self, reg, flags) reg.a = reg_rlc(flags, reg.a); self:add_cycles(4) end
+  cb[0x00] = function(self, reg, flags, mem) reg.b = reg_rlc(flags, reg.b); self:add_cycles(4) end
+  cb[0x01] = function(self, reg, flags, mem) reg.c = reg_rlc(flags, reg.c); self:add_cycles(4) end
+  cb[0x02] = function(self, reg, flags, mem) reg.d = reg_rlc(flags, reg.d); self:add_cycles(4) end
+  cb[0x03] = function(self, reg, flags, mem) reg.e = reg_rlc(flags, reg.e); self:add_cycles(4) end
+  cb[0x04] = function(self, reg, flags, mem) reg.h = reg_rlc(flags, reg.h); self:add_cycles(4) end
+  cb[0x05] = function(self, reg, flags, mem) reg.l = reg_rlc(flags, reg.l); self:add_cycles(4) end
+  cb[0x06] = function(self, reg, flags, mem)
+    mem[reg.hl()] = reg_rlc(flags, mem[reg.hl()])
+    self:add_cycles(12) 
+  end
+  cb[0x07] = function(self, reg, flags, mem) reg.a = reg_rlc(flags, reg.a); self:add_cycles(4) end
 
   -- rl r
-  cb[0x10] = function(self, reg, flags) reg.b = reg_rl(flags, reg.b); self:add_cycles(4) end
-  cb[0x11] = function(self, reg, flags) reg.c = reg_rl(flags, reg.c); self:add_cycles(4) end
-  cb[0x12] = function(self, reg, flags) reg.d = reg_rl(flags, reg.d); self:add_cycles(4) end
-  cb[0x13] = function(self, reg, flags) reg.e = reg_rl(flags, reg.e); self:add_cycles(4) end
-  cb[0x14] = function(self, reg, flags) reg.h = reg_rl(flags, reg.h); self:add_cycles(4) end
-  cb[0x15] = function(self, reg, flags) reg.l = reg_rl(flags, reg.l); self:add_cycles(4) end
-  cb[0x16] = function(self, reg, flags) self.write_byte(reg.hl(), reg_rl(flags, self.read_byte(reg.hl()))); self:add_cycles(12) end
-  cb[0x17] = function(self, reg, flags) reg.a = reg_rl(flags, reg.a); self:add_cycles(4) end
+  cb[0x10] = function(self, reg, flags, mem) reg.b = reg_rl(flags, reg.b); self:add_cycles(4) end
+  cb[0x11] = function(self, reg, flags, mem) reg.c = reg_rl(flags, reg.c); self:add_cycles(4) end
+  cb[0x12] = function(self, reg, flags, mem) reg.d = reg_rl(flags, reg.d); self:add_cycles(4) end
+  cb[0x13] = function(self, reg, flags, mem) reg.e = reg_rl(flags, reg.e); self:add_cycles(4) end
+  cb[0x14] = function(self, reg, flags, mem) reg.h = reg_rl(flags, reg.h); self:add_cycles(4) end
+  cb[0x15] = function(self, reg, flags, mem) reg.l = reg_rl(flags, reg.l); self:add_cycles(4) end
+  cb[0x16] = function(self, reg, flags, mem)
+    mem[reg.hl()] = reg_rl(flags, mem[reg.hl()])
+    self:add_cycles(12) 
+  end
+  cb[0x17] = function(self, reg, flags, mem) reg.a = reg_rl(flags, reg.a); self:add_cycles(4) end
 
   -- rrc r
-  cb[0x08] = function(self, reg, flags) reg.b = reg_rrc(flags, reg.b); self:add_cycles(4) end
-  cb[0x09] = function(self, reg, flags) reg.c = reg_rrc(flags, reg.c); self:add_cycles(4) end
-  cb[0x0A] = function(self, reg, flags) reg.d = reg_rrc(flags, reg.d); self:add_cycles(4) end
-  cb[0x0B] = function(self, reg, flags) reg.e = reg_rrc(flags, reg.e); self:add_cycles(4) end
-  cb[0x0C] = function(self, reg, flags) reg.h = reg_rrc(flags, reg.h); self:add_cycles(4) end
-  cb[0x0D] = function(self, reg, flags) reg.l = reg_rrc(flags, reg.l); self:add_cycles(4) end
-  cb[0x0E] = function(self, reg, flags) self.write_byte(reg.hl(), reg_rrc(flags, self.read_byte(reg.hl()))); self:add_cycles(12) end
-  cb[0x0F] = function(self, reg, flags) reg.a = reg_rrc(flags, reg.a); self:add_cycles(4) end
+  cb[0x08] = function(self, reg, flags, mem) reg.b = reg_rrc(flags, reg.b); self:add_cycles(4) end
+  cb[0x09] = function(self, reg, flags, mem) reg.c = reg_rrc(flags, reg.c); self:add_cycles(4) end
+  cb[0x0A] = function(self, reg, flags, mem) reg.d = reg_rrc(flags, reg.d); self:add_cycles(4) end
+  cb[0x0B] = function(self, reg, flags, mem) reg.e = reg_rrc(flags, reg.e); self:add_cycles(4) end
+  cb[0x0C] = function(self, reg, flags, mem) reg.h = reg_rrc(flags, reg.h); self:add_cycles(4) end
+  cb[0x0D] = function(self, reg, flags, mem) reg.l = reg_rrc(flags, reg.l); self:add_cycles(4) end
+  cb[0x0E] = function(self, reg, flags, mem) 
+    mem[reg.hl()] = reg_rrc(flags, mem[reg.hl()])
+    self:add_cycles(12)
+  end
+  cb[0x0F] = function(self, reg, flags, mem) reg.a = reg_rrc(flags, reg.a); self:add_cycles(4) end
 
   -- rl r
-  cb[0x18] = function(self, reg, flags) reg.b = reg_rr(flags, reg.b); self:add_cycles(4) end
-  cb[0x19] = function(self, reg, flags) reg.c = reg_rr(flags, reg.c); self:add_cycles(4) end
-  cb[0x1A] = function(self, reg, flags) reg.d = reg_rr(flags, reg.d); self:add_cycles(4) end
-  cb[0x1B] = function(self, reg, flags) reg.e = reg_rr(flags, reg.e); self:add_cycles(4) end
-  cb[0x1C] = function(self, reg, flags) reg.h = reg_rr(flags, reg.h); self:add_cycles(4) end
-  cb[0x1D] = function(self, reg, flags) reg.l = reg_rr(flags, reg.l); self:add_cycles(4) end
-  cb[0x1E] = function(self, reg, flags) self.write_byte(reg.hl(), reg_rr(flags, self.read_byte(reg.hl()))); self:add_cycles(12) end
-  cb[0x1F] = function(self, reg, flags) reg.a = reg_rr(flags, reg.a); self:add_cycles(4) end
+  cb[0x18] = function(self, reg, flags, mem) reg.b = reg_rr(flags, reg.b); self:add_cycles(4) end
+  cb[0x19] = function(self, reg, flags, mem) reg.c = reg_rr(flags, reg.c); self:add_cycles(4) end
+  cb[0x1A] = function(self, reg, flags, mem) reg.d = reg_rr(flags, reg.d); self:add_cycles(4) end
+  cb[0x1B] = function(self, reg, flags, mem) reg.e = reg_rr(flags, reg.e); self:add_cycles(4) end
+  cb[0x1C] = function(self, reg, flags, mem) reg.h = reg_rr(flags, reg.h); self:add_cycles(4) end
+  cb[0x1D] = function(self, reg, flags, mem) reg.l = reg_rr(flags, reg.l); self:add_cycles(4) end
+  cb[0x1E] = function(self, reg, flags, mem) 
+    mem[reg.hl()] = reg_rr(flags, mem[reg.hl()])
+    self:add_cycles(12) 
+  end
+  cb[0x1F] = function(self, reg, flags, mem) reg.a = reg_rr(flags, reg.a); self:add_cycles(4) end
 
   local function reg_sla (self, flags, value)
     -- copy bit 7 into carry
@@ -169,44 +181,56 @@ function apply(opcodes, opcode_cycles)
   end
 
   -- sla r
-  cb[0x20] = function(self, reg, flags) reg.b = reg_sla(self, flags, reg.b) end
-  cb[0x21] = function(self, reg, flags) reg.c = reg_sla(self, flags, reg.c) end
-  cb[0x22] = function(self, reg, flags) reg.d = reg_sla(self, flags, reg.d) end
-  cb[0x23] = function(self, reg, flags) reg.e = reg_sla(self, flags, reg.e) end
-  cb[0x24] = function(self, reg, flags) reg.h = reg_sla(self, flags, reg.h) end
-  cb[0x25] = function(self, reg, flags) reg.l = reg_sla(self, flags, reg.l) end
-  cb[0x26] = function(self, reg, flags) self.write_byte(reg.hl(), reg_sla(self, flags, self.read_byte(reg.hl()))); self:add_cycles(8) end
-  cb[0x27] = function(self, reg, flags) reg.a = reg_sla(self, flags, reg.a) end
+  cb[0x20] = function(self, reg, flags, mem) reg.b = reg_sla(self, flags, reg.b) end
+  cb[0x21] = function(self, reg, flags, mem) reg.c = reg_sla(self, flags, reg.c) end
+  cb[0x22] = function(self, reg, flags, mem) reg.d = reg_sla(self, flags, reg.d) end
+  cb[0x23] = function(self, reg, flags, mem) reg.e = reg_sla(self, flags, reg.e) end
+  cb[0x24] = function(self, reg, flags, mem) reg.h = reg_sla(self, flags, reg.h) end
+  cb[0x25] = function(self, reg, flags, mem) reg.l = reg_sla(self, flags, reg.l) end
+  cb[0x26] = function(self, reg, flags, mem)
+    mem[reg.hl()] = reg_sla(self, flags, mem[reg.hl()]) 
+    self:add_cycles(8) 
+  end
+  cb[0x27] = function(self, reg, flags, mem) reg.a = reg_sla(self, flags, reg.a) end
 
   -- swap r (high and low nybbles)
-  cb[0x30] = function(self, reg, flags) reg.b = reg_swap(self, flags, reg.b) end
-  cb[0x31] = function(self, reg, flags) reg.c = reg_swap(self, flags, reg.c) end
-  cb[0x32] = function(self, reg, flags) reg.d = reg_swap(self, flags, reg.d) end
-  cb[0x33] = function(self, reg, flags) reg.e = reg_swap(self, flags, reg.e) end
-  cb[0x34] = function(self, reg, flags) reg.h = reg_swap(self, flags, reg.h) end
-  cb[0x35] = function(self, reg, flags) reg.l = reg_swap(self, flags, reg.l) end
-  cb[0x36] = function(self, reg, flags) self.write_byte(reg.hl(), reg_swap(self, flags, self.read_byte(reg.hl()))); self:add_cycles(8) end
-  cb[0x37] = function(self, reg, flags) reg.a = reg_swap(self, flags, reg.a) end
+  cb[0x30] = function(self, reg, flags, mem) reg.b = reg_swap(self, flags, reg.b) end
+  cb[0x31] = function(self, reg, flags, mem) reg.c = reg_swap(self, flags, reg.c) end
+  cb[0x32] = function(self, reg, flags, mem) reg.d = reg_swap(self, flags, reg.d) end
+  cb[0x33] = function(self, reg, flags, mem) reg.e = reg_swap(self, flags, reg.e) end
+  cb[0x34] = function(self, reg, flags, mem) reg.h = reg_swap(self, flags, reg.h) end
+  cb[0x35] = function(self, reg, flags, mem) reg.l = reg_swap(self, flags, reg.l) end
+  cb[0x36] = function(self, reg, flags, mem) 
+    mem[reg.hl()] = reg_swap(self, flags, mem[reg.hl()])
+    self:add_cycles(8) 
+  end
+  cb[0x37] = function(self, reg, flags, mem) reg.a = reg_swap(self, flags, reg.a) end
 
   -- sra r
-  cb[0x28] = function(self, reg, flags) reg.b = reg_sra(self, flags, reg.b); self:add_cycles(-4) end
-  cb[0x29] = function(self, reg, flags) reg.c = reg_sra(self, flags, reg.c); self:add_cycles(-4) end
-  cb[0x2A] = function(self, reg, flags) reg.d = reg_sra(self, flags, reg.d); self:add_cycles(-4) end
-  cb[0x2B] = function(self, reg, flags) reg.e = reg_sra(self, flags, reg.e); self:add_cycles(-4) end
-  cb[0x2C] = function(self, reg, flags) reg.h = reg_sra(self, flags, reg.h); self:add_cycles(-4) end
-  cb[0x2D] = function(self, reg, flags) reg.l = reg_sra(self, flags, reg.l); self:add_cycles(-4) end
-  cb[0x2E] = function(self, reg, flags) self.write_byte(reg.hl(), reg_sra(self, flags, self.read_byte(reg.hl()))); self:add_cycles(4) end
-  cb[0x2F] = function(self, reg, flags) reg.a = reg_sra(self, flags, reg.a); self:add_cycles(-4) end
+  cb[0x28] = function(self, reg, flags, mem) reg.b = reg_sra(self, flags, reg.b); self:add_cycles(-4) end
+  cb[0x29] = function(self, reg, flags, mem) reg.c = reg_sra(self, flags, reg.c); self:add_cycles(-4) end
+  cb[0x2A] = function(self, reg, flags, mem) reg.d = reg_sra(self, flags, reg.d); self:add_cycles(-4) end
+  cb[0x2B] = function(self, reg, flags, mem) reg.e = reg_sra(self, flags, reg.e); self:add_cycles(-4) end
+  cb[0x2C] = function(self, reg, flags, mem) reg.h = reg_sra(self, flags, reg.h); self:add_cycles(-4) end
+  cb[0x2D] = function(self, reg, flags, mem) reg.l = reg_sra(self, flags, reg.l); self:add_cycles(-4) end
+  cb[0x2E] = function(self, reg, flags, mem)
+    mem[reg.hl()] = reg_sra(self, flags, mem[reg.hl()])
+    self:add_cycles(4) 
+  end
+  cb[0x2F] = function(self, reg, flags, mem) reg.a = reg_sra(self, flags, reg.a); self:add_cycles(-4) end
 
   -- srl r
-  cb[0x38] = function(self, reg, flags) reg.b = reg_srl(self, flags, reg.b) end
-  cb[0x39] = function(self, reg, flags) reg.c = reg_srl(self, flags, reg.c) end
-  cb[0x3A] = function(self, reg, flags) reg.d = reg_srl(self, flags, reg.d) end
-  cb[0x3B] = function(self, reg, flags) reg.e = reg_srl(self, flags, reg.e) end
-  cb[0x3C] = function(self, reg, flags) reg.h = reg_srl(self, flags, reg.h) end
-  cb[0x3D] = function(self, reg, flags) reg.l = reg_srl(self, flags, reg.l) end
-  cb[0x3E] = function(self, reg, flags) self.write_byte(reg.hl(), reg_srl(self, flags, self.read_byte(reg.hl()))); self:add_cycles(8) end
-  cb[0x3F] = function(self, reg, flags) reg.a = reg_srl(self, flags, reg.a) end
+  cb[0x38] = function(self, reg, flags, mem) reg.b = reg_srl(self, flags, reg.b) end
+  cb[0x39] = function(self, reg, flags, mem) reg.c = reg_srl(self, flags, reg.c) end
+  cb[0x3A] = function(self, reg, flags, mem) reg.d = reg_srl(self, flags, reg.d) end
+  cb[0x3B] = function(self, reg, flags, mem) reg.e = reg_srl(self, flags, reg.e) end
+  cb[0x3C] = function(self, reg, flags, mem) reg.h = reg_srl(self, flags, reg.h) end
+  cb[0x3D] = function(self, reg, flags, mem) reg.l = reg_srl(self, flags, reg.l) end
+  cb[0x3E] = function(self, reg, flags, mem)
+    mem[reg.hl()] = reg_srl(self, flags, mem[reg.hl()])
+    self:add_cycles(8) 
+  end
+  cb[0x3F] = function(self, reg, flags, mem) reg.a = reg_srl(self, flags, reg.a) end
 
   -- ====== GMB Singlebit Operation Commands ======
   local function reg_bit (flags, value, bit)
@@ -216,13 +240,13 @@ function apply(opcodes, opcode_cycles)
     return
   end
 
-  opcodes[0xCB] = function(self, reg, flags)
+  opcodes[0xCB] = function(self, reg, flags, mem)
     local cb_op = self.read_nn()
     self:add_cycles(4)
     if cb[cb_op] ~= nil then
       --revert the timing; this is handled automatically by the various functions
       self:add_cycles(-4)
-      cb[cb_op](self, reg, flags)
+      cb[cb_op](self, reg, flags, mem)
       return
     end
     local high_half_nybble = rshift(band(cb_op, 0xC0), 6)
@@ -236,7 +260,7 @@ function apply(opcodes, opcode_cycles)
       if reg_index == 3 then reg_bit(flags, reg.e, bit) end
       if reg_index == 4 then reg_bit(flags, reg.h, bit) end
       if reg_index == 5 then reg_bit(flags, reg.l, bit) end
-      if reg_index == 6 then reg_bit(flags, self.read_byte(reg.hl()), bit); self:add_cycles(4) end
+      if reg_index == 6 then reg_bit(flags, mem[reg.hl()], bit); self:add_cycles(4) end
       if reg_index == 7 then reg_bit(flags, reg.a, bit) end
     end
     if high_half_nybble == 0x2 then
@@ -249,7 +273,7 @@ function apply(opcodes, opcode_cycles)
       if reg_index == 3 then reg.e = band(reg.e, bxor(reg.e, lshift(0x1, bit))) end
       if reg_index == 4 then reg.h = band(reg.h, bxor(reg.h, lshift(0x1, bit))) end
       if reg_index == 5 then reg.l = band(reg.l, bxor(reg.l, lshift(0x1, bit))) end
-      if reg_index == 6 then self.write_byte(reg.hl(), band(self.read_byte(reg.hl()), bxor(self.read_byte(reg.hl()), lshift(0x1, bit)))); self:add_cycles(8) end
+      if reg_index == 6 then mem[reg.hl()] = band(mem[reg.hl()], bxor(mem[reg.hl()], lshift(0x1, bit))); self:add_cycles(8) end
       if reg_index == 7 then reg.a = band(reg.a, bxor(reg.a, lshift(0x1, bit))) end
     end
 
@@ -261,7 +285,7 @@ function apply(opcodes, opcode_cycles)
       if reg_index == 3 then reg.e = bor(lshift(0x1, bit), reg.e) end
       if reg_index == 4 then reg.h = bor(lshift(0x1, bit), reg.h) end
       if reg_index == 5 then reg.l = bor(lshift(0x1, bit), reg.l) end
-      if reg_index == 6 then self.write_byte(reg.hl(), bor(lshift(0x1, bit), self.read_byte(reg.hl()))); self:add_cycles(8) end
+      if reg_index == 6 then mem[reg.hl()] = bor(lshift(0x1, bit), mem[reg.hl()]); self:add_cycles(8) end
       if reg_index == 7 then reg.a = bor(lshift(0x1, bit), reg.a) end
     end
   end
