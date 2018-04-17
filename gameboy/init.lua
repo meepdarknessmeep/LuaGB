@@ -42,6 +42,8 @@ function Gameboy:reset()
   self.timers:reset()
   self.processor.reset(self)
 
+  self.memory:initialize()
+
   self.interrupts.enabled = 1
 end
 

@@ -57,7 +57,9 @@ function Memory.new(modules)
     end
   end
 
-  local wram1
+  local wram1 = {
+    loadbytes(4 * 7 * 1024)
+  }
 
   memory.reset = function()
     -- It's tempting to want to zero out all 0x0000-0xFFFF, but
@@ -105,6 +107,28 @@ function Memory.new(modules)
     memory.work_ram_1.bank = state.work_ram_1_bank
   end
 
+  function memory:initialize()
+    function memory_mt:__tostring()
+      return "Gameboy MMU"
+    end
+
+    function memory_mt:__index(n)
+      local hook = self.hooks[n]
+      if (hook) then
+        return hook[1](hook[3], n)
+      end
+      return self[n % 0x10000]
+    end
+
+    function memory_mt:__newindex(n, v)
+      local hook = self.hooks[n]
+      if (hook) then
+        return hook[2](hook[3], n, v)
+      end
+      self[n % 0x10000] = n
+    end
+  end
+
   -- echo wram0
   function memory:getter(addr)
     return self[addr - 0xE000 + 0xC000]
@@ -115,44 +139,21 @@ function Memory.new(modules)
   memory:install_hooks(0xE000, 4 * 1024, memory)
 
 
-
-  function memory_mt:__tostring()
-    return "Gameboy MMU"
-  end
-
-  function memory_mt:__index(n)
-    local hook = self.hooks[n]
-    if (hook) then
-      return hook[1](hook[3], n)
-    end
-    return self[n % 0x10000]
-  end
-
-  function memory_mt:__newindex(n, v)
-    local hook = self.hooks[n]
-    if (hook) then
-      return hook[2](hook[3], n, v)
-    end
-    self[n % 0x10000] = n
-  end
-
-
-  wram1 = loadtable(4 * 7 * 1024)
   wram1.bank = 0
 
   function wram1:getter(addr)
-    return self[addr - 0xD000 + self.bank * 4096]
+    return self[1][addr - 0xD000 + self.bank * 4096]
   end
   function wram1:setter(addr, value)
-    self[addr - 0xD000 + self.bank * 4096] = value
+    self[1][addr - 0xD000 + self.bank * 4096] = value
   end
   memory:install_hooks(0xD000, 0x1000, wram1)
 
   function wram1:getter(addr)
-    return self[addr - 0xF000 + self.bank * 4096]
+    return self[1][addr - 0xF000 + self.bank * 4096]
   end
   function wram1:setter(addr, value)
-    self[addr - 0xF000 + self.bank * 4096] = value
+    self[1][addr - 0xF000 + self.bank * 4096] = value
   end
   memory:install_hooks(0xF000, 0xE00, wram1)
 
