@@ -19,11 +19,9 @@ local apply_stack = require("gameboy/z80/stack")
 
 local opcodes = {}
 local opcode_cycles = {}
-local opcode_names = {}
 
 local ffi, clock = require "ffi", os.clock
-if (ffi) then
-  print "found ffi"
+if (ffi and ffi.os == "Windows") then
   ffi.cdef [[
     extern int (__stdcall QueryPerformanceCounter)(uint64_t *lpPerformanceCount);
     extern int (__stdcall QueryPerformanceFrequency)(uint64_t *lpFrequency);
@@ -38,8 +36,7 @@ if (ffi) then
     time[0] = time[0] / freq[0]
     return tonumber(time[0]) / 1000000
   end
-else
-  print "no ffi"
+  
 end
 
 

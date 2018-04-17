@@ -8,6 +8,7 @@ local panels = {}
 panels.audio = require("panels/audio")
 panels.registers = require("panels/registers")
 panels.io = require("panels/io")
+panels.profiler = require "panels/profiler"
 panels.vram = require("panels/vram")
 panels.oam = require("panels/oam")
 panels.disassembler = require("panels/disassembler")
@@ -64,6 +65,9 @@ end
 
 function LuaGB:toggle_panel(name)
   if panels[name].active then
+    if (panels[name].onactivate) then
+      panels[name]:onactivate(false)
+    end
     panels[name].active = false
     for index, value in ipairs(self.debug.active_panels) do
       if value == panels[name] then
@@ -72,6 +76,9 @@ function LuaGB:toggle_panel(name)
     end
   else
     panels[name].active = true
+    if (panels[name].onactivate) then
+      panels[name]:onactivate(true)
+    end
     table.insert(self.debug.active_panels, panels[name])
   end
   self:resize_window()
@@ -368,6 +375,7 @@ action_keys.kp2 = function() LuaGB:toggle_panel("vram") end
 action_keys.kp3 = function() LuaGB:toggle_panel("oam") end
 action_keys.kp4 = function() LuaGB:toggle_panel("disassembler") end
 action_keys.kp5 = function() LuaGB:toggle_panel("audio") end
+action_keys.kp6 = function() LuaGB:toggle_panel "profiler" end
 
 action_keys["kp+"] = function()
   if LuaGB.screen_scale < 5 then
