@@ -105,6 +105,16 @@ function Memory.new(modules)
     memory.work_ram_1.bank = state.work_ram_1_bank
   end
 
+  -- echo wram0
+  function memory:getter(addr)
+    return self[addr - 0xE000 + 0xC000]
+  end
+  function memory:setter(addr, value)
+    self[addr - 0xE000 + 0xC000] = value
+  end
+  memory:install_hooks(0xE000, 4 * 1024, memory)
+
+
 
   function memory_mt:__tostring()
     return "Gameboy MMU"
@@ -125,25 +135,6 @@ function Memory.new(modules)
     end
     self[n % 0x10000] = n
   end
-
-
-  local wram0 = memory:create_block(4 * 1024)
-
-  function wram0:getter(addr)
-    return self[addr - 0xC000]
-  end
-  function wram0:setter(addr, value)
-    self[addr - 0xC000] = value
-  end
-  memory:install_hooks(0xC000, #wram0, wram0)
-
-  function wram0:getter(addr)
-    return self[addr - 0xE000]
-  end
-  function wram0:setter(addr, value)
-    self[addr - 0xE000] = value
-  end
-  memory:install_hooks(0xE000, #wram0, wram0)
 
 
   wram1 = loadtable(4 * 7 * 1024)
