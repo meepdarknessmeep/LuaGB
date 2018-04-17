@@ -1,4 +1,5 @@
 local bit32 = require("bit")
+local ffi   = require "ffi"
 
 local lshift = bit32.lshift
 local rshift = bit32.rshift
@@ -20,7 +21,7 @@ local apply_stack = require("gameboy/z80/stack")
 local opcodes = {}
 local opcode_cycles = {}
 
-local ffi, clock = require "ffi", os.clock
+local clock = require "ffi", os.clock
 if (ffi and ffi.os == "Windows") then
   ffi.cdef [[
     extern int (__stdcall QueryPerformanceCounter)(uint64_t *lpPerformanceCount);
@@ -36,7 +37,6 @@ if (ffi and ffi.os == "Windows") then
     time[0] = time[0] / freq[0]
     return tonumber(time[0]) / 1000000
   end
-  
 end
 
 

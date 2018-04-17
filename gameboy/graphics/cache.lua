@@ -1,8 +1,9 @@
 local bit32 = require("bit")
+local ffi   = require "ffi"
 
-local Cache = {}
+local graphics -- TODO: ffi graphics to enable support for non hacky solution
 
-function Cache.new(graphics)
+local function new_cache()
   local cache = {}
 
   cache.tiles = {}
@@ -78,6 +79,78 @@ function Cache.new(graphics)
     end
   end
 
+  return cache
+end
+
+if (ffi) then
+  function new_cache()
+    local cache = ffi.new("LuaGBTileCache")
+
+    cache.reset = function()
+      for i = 0, 768 - 1 do
+        for x = 0, 7 do
+          for y = 0, 7 do
+            cache.tiles[i][x][y] = 0
+            cache.tiles_h_flipped[i][x][y] = 0
+          end
+        end
+      end
+
+      for x = 0, 31 do
+        for y = 0, 31 do
+          cache.map_0[x][y] = cache.tiles[0]
+          cache.map_1[x][y] = cache.tiles[0]
+
+          if graphics.gameboy.type == graphics.gameboy.types.color then
+            cache.map_0_attr[x][y].palette = graphics.palette.color_bg[0]
+          else
+            cache.map_0_attr[x][y].palette = graphics.palette.bg
+          end
+          cache.map_0_attr[x][y].bank = 0
+          cache.map_0_attr[x][y].horizontal_flip = false
+          cache.map_0_attr[x][y].vertical_flip = false
+          cache.map_0_attr[x][y].priority = false
+
+          if graphics.gameboy.type == graphics.gameboy.types.color then
+            cache.map_1_attr[x][y].palette = graphics.palette.color_bg[0]
+          else
+            cache.map_1_attr[x][y].palette = graphics.palette.bg
+          end
+          cache.map_1_attr[x][y].bank = 0
+          cache.map_1_attr[x][y].horizontal_flip = false
+          cache.map_1_attr[x][y].vertical_flip = false
+          cache.map_1_attr[x][y].priority = false
+        end
+      end
+  
+      for i = 0, 39 do
+        cache.oam[i].x = 0
+        cache.oam[i].y = 0
+        cache.oam[i].tile = cache.tiles[0]
+        cache.oam[i].upper_tile = cache.tiles[0]
+        cache.oam[i].lower_tile = cache.tiles[1]
+        cache.oam[i].bg_priority = false
+        cache.oam[i].horizontal_flip = false
+        cache.oam[i].vertical_flip = false
+        if graphics.gameboy.type == graphics.gameboy.types.color then
+          cache.oam[i].palette = graphics.palette.color_obj[0]
+        else
+          cache.oam[i].palette = graphics.palette.bg
+        end
+      end
+    end
+    return cache
+
+  end
+end
+
+local Cache = {}
+
+function Cache.new(g)
+  graphics = g
+
+  local cache = new_cache()
+
   cache.refreshOamEntry = function(index)
     local y = graphics.oam[index * 4 + 0] - 16
     local x = graphics.oam[index * 4 + 1] - 8
@@ -117,15 +190,16 @@ function Cache.new(graphics)
 
   cache.refreshAttributes = function(map_attr, x, y, address)
     local data = graphics.vram[address + (16 * 1024)]
+    local attr = map_attr[x][y]
     if graphics.gameboy.type == graphics.gameboy.types.color then
-      map_attr[x][y].palette = graphics.palette.color_bg[bit32.band(data, 0x07)]
+      attr.palette = graphics.palette.color_bg[bit32.band(data, 0x07)]
     else
-      map_attr[x][y].palette = graphics.palette.bg
+      attr.palette = graphics.palette.bg
     end
-    map_attr[x][y].bank = bit32.rshift(bit32.band(data, 0x08), 3)
-    map_attr[x][y].horizontal_flip = bit32.rshift(bit32.band(data, 0x20), 5) ~= 0
-    map_attr[x][y].vertical_flip = bit32.rshift(bit32.band(data, 0x40), 6) ~= 0
-    map_attr[x][y].priority = bit32.rshift(bit32.band(data, 0x80), 7) ~= 0
+    attr.bank = bit32.rshift(bit32.band(data, 0x08), 3)
+    attr.horizontal_flip = bit32.rshift(bit32.band(data, 0x20), 5) ~= 0
+    attr.vertical_flip = bit32.rshift(bit32.band(data, 0x40), 6) ~= 0
+    attr.priority = bit32.rshift(bit32.band(data, 0x80), 7) ~= 0
   end
 
   cache.refreshTile = function(address, bank)

@@ -1,24 +1,67 @@
 local bit32 = require("bit")
+local ffi   = require "ffi"
+
+local graphics, modules -- TODO: ffi more stuff to do this non-hackily
+
+local function new_registers(cache)
+  return {
+    display_enabled = true,
+    window_tilemap = cache.map_0,
+    window_attr = cache.map_0_attr,
+    window_enabled = true,
+    tile_select = 0x9000,
+    background_tilemap = cache.map_0,
+    background_attr = cache.map_0_attr,
+    large_sprites = false,
+    sprites_enabled = true,
+    background_enabled = true,
+    oam_priority = false,
+    status = {
+      --status.SetMode = function(mode)
+      mode = 2,
+      lyc_interrupt_enabled = false,
+      oam_interrupt_enabled = false,
+      vblank_interrupt_enabled = false,
+      hblank_interrupt_enabled = false
+    }
+  }
+end
+
+if (ffi) then
+  function new_registers(cache)
+    local registers = ffi.new "LuaGBRegisters"
+    registers.display_enabled = true
+    registers.window_tilemap = cache.map_0
+    registers.window_attr = cache.map_0_attr
+    registers.window_enabled = true
+    registers.tile_select = 0x9000
+    registers.background_tilemap = cache.map_0
+    registers.background_attr = cache.map_0_attr
+    registers.large_sprites = false
+    registers.sprites_enabled = true
+    registers.background_enabled = true
+    registers.oam_priority = false
+    registers.status = {
+      --status.SetMode = function(mode)
+      mode = 2,
+      lyc_interrupt_enabled = false,
+      oam_interrupt_enabled = false,
+      vblank_interrupt_enabled = false,
+      hblank_interrupt_enabled = false
+    }
+    return registers
+  end
+end
 
 local Registers = {}
 
-function Registers.new(graphics, modules, cache)
+function Registers.new(g, m, cache)
+  graphics, modules = g, m
   local io = modules.io
   local ports = io.ports
 
-  local registers = {}
-
-  registers.display_enabled = true
-  registers.window_tilemap = cache.map_0
-  registers.window_attr = cache.map_0_attr
-  registers.window_enabled = true
-  registers.tile_select = 0x9000
-  registers.background_tilemap = cache.map_0
-  registers.background_attr = cache.map_0_attr
-  registers.large_sprites = false
-  registers.sprites_enabled = true
-  registers.background_enabled = true
-  registers.oam_priority = false
+  local registers = new_registers(cache)
+  local status = registers.status
 
   io.write_logic[ports.LCDC] = function(byte)
     io[1][ports.LCDC] = byte
@@ -66,20 +109,11 @@ function Registers.new(graphics, modules, cache)
     end
   end
 
-  local status = {}
-  registers.status = status
-
-  status.mode = 2
-
   status.SetMode = function(mode)
     status.mode = mode
     io[1][ports.STAT] = bit32.band(io[1][ports.STAT], 0xFC) + bit32.band(mode, 0x3)
   end
 
-  status.lyc_interrupt_enabled = false
-  status.oam_interrupt_enabled = false
-  status.vblank_interrupt_enabled = false
-  status.hblank_interrupt_enabled = false
 
   io.write_logic[ports.STAT] = function(byte)
     io[1][ports.STAT] = bit32.band(byte, 0x78)

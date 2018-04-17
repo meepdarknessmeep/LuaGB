@@ -1,4 +1,8 @@
 local bit32 = require("bit")
+local ffi = require "ffi"
+if (ffi) then
+  require "gameboy/ffi_structs"
+end
 
 local Gameboy = {}
 

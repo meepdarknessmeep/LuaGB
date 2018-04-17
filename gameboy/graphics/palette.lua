@@ -1,4 +1,94 @@
 local bit32 = require("bit")
+local ffi   = require "ffi"
+
+local function setcolor(to, r, g, b)
+  to[1] = r
+  to[2] = g
+  to[3] = b
+end
+
+local function new_palette()
+  local palette
+  palette = {
+    bg = {},
+    obj0 = {},
+    obj1 = {},
+    color_bg = {},
+    color_obj = {},
+    color_bg_raw = {},
+    color_obj_raw = {},
+    color_bg_index = 0,
+    color_bg_auto_increment = false,
+    color_obj_index = 0,
+    color_obj_auto_increment = false,
+    reset = function()
+      local dmg_colors = {}
+      setcolor(dmg_colors[0], 255, 255, 255)
+      setcolor(dmg_colors[1], 192, 192, 192)
+      setcolor(dmg_colors[2], 128, 128, 128)
+      setcolor(dmg_colors[3], 0, 0, 0)
+
+      palette.dmg_colors = dmg_colors
+
+      for i = 0, 3 do
+        palette.bg[i] = dmg_colors[i]
+        palette.obj0[i] = dmg_colors[i]
+        palette.obj1[i] = dmg_colors[i]
+      end
+
+      for p = 0, 7 do
+        palette.color_bg[p] = {}
+        palette.color_obj[p] = {}
+        for i = 0, 3 do
+          setcolor(palette.color_bg[p][i], 255, 255, 255)
+          setcolor(palette.color_obj[p][i], 255, 255, 255)
+        end
+      end
+
+      for i = 0, 63 do
+        palette.color_bg_raw[i] = 0
+        palette.color_obj_raw[i] = 0
+      end
+    end
+  }
+  palette.reset()
+
+  return palette
+end
+
+
+if (ffi) then
+  function new_palette()
+    local palette = ffi.new "LuaGBPalette"
+    function palette.reset()
+      local dmg_colors = ffi.new "LuaGBPaletteColor[4]"
+      setcolor(dmg_colors[0], 255, 255, 255)
+      setcolor(dmg_colors[1], 192, 192, 192)
+      setcolor(dmg_colors[2], 128, 128, 128)
+      setcolor(dmg_colors[3], 0, 0, 0)
+
+      for i = 0, 3 do
+        palette.bg[i] = dmg_colors[i]
+        palette.obj0[i] = dmg_colors[i]
+        palette.obj1[i] = dmg_colors[i]
+      end
+
+      for p = 0, 7 do
+        for i = 0, 3 do
+          setcolor(palette.color_bg[p][i], 255, 255, 255)
+          setcolor(palette.color_obj[p][i], 255, 255, 255)
+        end
+      end
+
+      for i = 0, 63 do
+        palette.color_bg_raw[i] = 0
+        palette.color_obj_raw[i] = 0
+      end
+    end
+    palette.reset()
+    return palette
+  end
+end
 
 local Palette = {}
 
@@ -6,62 +96,25 @@ function Palette.new(graphics, modules)
   local io = modules.io
   local ports = io.ports
 
-  local palette = {}
+  local palette = new_palette()
 
-  local dmg_colors = {}
-  dmg_colors[0] = {255, 255, 255}
-  dmg_colors[1] = {192, 192, 192}
-  dmg_colors[2] = {128, 128, 128}
-  dmg_colors[3] = {0, 0, 0}
-  palette.dmg_colors = dmg_colors
+
+
 
   palette.set_dmg_colors = function(pal_0, pal_1, pal_2, pal_3)
-    dmg_colors[0] = pal_0
-    dmg_colors[1] = pal_1
-    dmg_colors[2] = pal_2
-    dmg_colors[3] = pal_3
+    palette.dmg_colors[0] = pal_0
+    palette.dmg_colors[1] = pal_1
+    palette.dmg_colors[2] = pal_2
+    palette.dmg_colors[3] = pal_3
   end
 
-  palette.bg =   {}
-  palette.obj0 = {}
-  palette.obj1 = {}
-
-  palette.color_bg = {}
-  palette.color_obj = {}
-  palette.color_bg_raw = {}
-  palette.color_obj_raw = {}
-
-  palette.reset = function()
-    for i = 0, 3 do
-      palette.bg[i] = dmg_colors[i]
-      palette.obj0[i] = dmg_colors[i]
-      palette.obj1[i] = dmg_colors[i]
-    end
-
-    for p = 0, 7 do
-      palette.color_bg[p] = {}
-      palette.color_obj[p] = {}
-      for i = 0, 3 do
-        palette.color_bg[p][i] = {255, 255, 255}
-        palette.color_obj[p][i] = {255, 255, 255}
-      end
-    end
-
-    for i = 0, 63 do
-      palette.color_bg_raw[i] = 0
-      palette.color_obj_raw[i] = 0
-    end
-  end
-
-  palette.reset()
-
-  local getColorFromIndex = function(index, palette)
-    palette = palette or 0xE4
+  local getColorFromIndex = function(index, p)
+    p = p or 0xE4
     while index > 0 do
-      palette = bit32.rshift(palette, 2)
+      p = bit32.rshift(p, 2)
       index = index - 1
     end
-    return dmg_colors[bit32.band(palette, 0x3)]
+    return palette.dmg_colors[bit32.band(p, 0x3)]
   end
 
   -- DMG palettes
@@ -89,11 +142,6 @@ function Palette.new(graphics, modules)
     graphics.update()
   end
 
-  palette.color_bg_index = 0
-  palette.color_bg_auto_increment = false
-  palette.color_obj_index = 0
-  palette.color_obj_auto_increment = false
-
   -- Color Palettes
   io.write_logic[0x68] = function(byte)
     io[1][0x68] = byte
@@ -113,7 +161,7 @@ function Palette.new(graphics, modules)
     local b = bit32.rshift(bit32.band(rgb5_color, 0x7C00), 10) * 8
     local palette_index = math.floor(palette.color_bg_index / 8)
     local color_index = math.floor((palette.color_bg_index % 8) / 2)
-    palette.color_bg[palette_index][color_index] = {r, g, b}
+    setcolor(palette.color_bg[palette_index][color_index], r, g, b)
 
     if palette.color_bg_auto_increment then
       palette.color_bg_index = palette.color_bg_index + 1
@@ -145,7 +193,7 @@ function Palette.new(graphics, modules)
     local b = bit32.rshift(bit32.band(rgb5_color, 0x7C00), 10) * 8
     local palette_index = math.floor(palette.color_obj_index / 8)
     local color_index = math.floor((palette.color_obj_index % 8) / 2)
-    palette.color_obj[palette_index][color_index] = {r, g, b}
+    setcolor(palette.color_obj[palette_index][color_index], r, g, b)
 
     if palette.color_obj_auto_increment then
       palette.color_obj_index = palette.color_obj_index + 1
