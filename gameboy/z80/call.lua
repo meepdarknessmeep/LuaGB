@@ -7,17 +7,18 @@ local band = bit32.band
 function apply(opcodes, opcode_cycles)
 
   local function call_nnnn (self, reg, flags, mem)
-    local lower = self.read_nn()
-    local upper = self.read_nn() * 256
-    -- at this point, reg[1] points at the next instruction after the call,
-    -- so store the current PC to the stack
+    local pc = reg[1]
+    local lower = mem[pc]
+    local upper = mem[pc + 1] * 256
+
+    -- store the current PC to the stack
 
     local sp = reg[2]
 
-    mem[(sp + 0xFFFF) % 0x10000] = rshift(reg[1], 8)
+    mem[(sp + 0xFFFF) % 0x10000] = rshift(pc + 2, 8)
     sp = (sp + 0xFFFE) % 0x10000
     reg[2] = sp
-    mem[sp] = reg[1] % 0x100
+    mem[sp] = (pc + 2) % 0x100
 
     reg[1] = upper + lower
   end

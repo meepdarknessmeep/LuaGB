@@ -137,9 +137,7 @@ opcode_cycles[0x70] = 8
 
   opcode_cycles[0xFA] = 16
   opcodes[0xFA] = function(self, reg, flags, mem)
-    local lower = self.read_nn()
-    local upper = lshift(self.read_nn(), 8)
-    reg.a = mem[upper + lower]
+    reg.a = mem[self.read_nn() + self.read_nn() * 256]
   end
 
   -- ld (xx), A

@@ -240,53 +240,59 @@ function apply(opcodes, opcode_cycles)
     return
   end
 
+  local indices = {
+    [0] = "b",
+    "c",
+    "d",
+    "e",
+    "h",
+    "l",
+    nil,
+    "a"
+  }
   opcodes[0xCB] = function(self, reg, flags, mem)
     local cb_op = self.read_nn()
-    self:add_cycles(4)
     if cb[cb_op] ~= nil then
-      --revert the timing; this is handled automatically by the various functions
-      self:add_cycles(-4)
       cb[cb_op](self, reg, flags, mem)
       return
     end
+    self:add_cycles(4)
     local high_half_nybble = rshift(band(cb_op, 0xC0), 6)
     local reg_index = band(cb_op, 0x7)
     local bit = rshift(band(cb_op, 0x38), 3)
     if high_half_nybble == 0x1 then
       -- bit n,r
-      if reg_index == 0 then reg_bit(flags, reg.b, bit) end
-      if reg_index == 1 then reg_bit(flags, reg.c, bit) end
-      if reg_index == 2 then reg_bit(flags, reg.d, bit) end
-      if reg_index == 3 then reg_bit(flags, reg.e, bit) end
-      if reg_index == 4 then reg_bit(flags, reg.h, bit) end
-      if reg_index == 5 then reg_bit(flags, reg.l, bit) end
-      if reg_index == 6 then reg_bit(flags, mem[reg.hl()], bit); self:add_cycles(4) end
-      if reg_index == 7 then reg_bit(flags, reg.a, bit) end
-    end
-    if high_half_nybble == 0x2 then
+      local val = indices[reg_index]
+      if (not val) then
+        reg_bit(flags, mem[reg.hl()], bit)
+        self:add_cycles(4)
+        return
+      end
+
+      reg_bit(flags, reg[val], bit)
+    elseif high_half_nybble == 0x2 then
       -- res n, r
       -- note: this is REALLY stupid, but it works around some floating point
       -- limitations in Lua.
-      if reg_index == 0 then reg.b = band(reg.b, bxor(reg.b, lshift(0x1, bit))) end
-      if reg_index == 1 then reg.c = band(reg.c, bxor(reg.c, lshift(0x1, bit))) end
-      if reg_index == 2 then reg.d = band(reg.d, bxor(reg.d, lshift(0x1, bit))) end
-      if reg_index == 3 then reg.e = band(reg.e, bxor(reg.e, lshift(0x1, bit))) end
-      if reg_index == 4 then reg.h = band(reg.h, bxor(reg.h, lshift(0x1, bit))) end
-      if reg_index == 5 then reg.l = band(reg.l, bxor(reg.l, lshift(0x1, bit))) end
-      if reg_index == 6 then mem[reg.hl()] = band(mem[reg.hl()], bxor(mem[reg.hl()], lshift(0x1, bit))); self:add_cycles(8) end
-      if reg_index == 7 then reg.a = band(reg.a, bxor(reg.a, lshift(0x1, bit))) end
-    end
+      local val = indices[reg_index]
+      if (not val) then
+        mem[reg.hl()] = band(mem[reg.hl()], bxor(mem[reg.hl()], lshift(0x1, bit)))
+        self:add_cycles(8)
+        return
+      end
 
-    if high_half_nybble == 0x3 then
+      local n = reg[val]
+      reg[val] = band(n, bxor(n, lshift(0x1, bit)))
+    elseif high_half_nybble == 0x3 then
       -- set n, r
-      if reg_index == 0 then reg.b = bor(lshift(0x1, bit), reg.b) end
-      if reg_index == 1 then reg.c = bor(lshift(0x1, bit), reg.c) end
-      if reg_index == 2 then reg.d = bor(lshift(0x1, bit), reg.d) end
-      if reg_index == 3 then reg.e = bor(lshift(0x1, bit), reg.e) end
-      if reg_index == 4 then reg.h = bor(lshift(0x1, bit), reg.h) end
-      if reg_index == 5 then reg.l = bor(lshift(0x1, bit), reg.l) end
-      if reg_index == 6 then mem[reg.hl()] = bor(lshift(0x1, bit), mem[reg.hl()]); self:add_cycles(8) end
-      if reg_index == 7 then reg.a = bor(lshift(0x1, bit), reg.a) end
+      local val = indices[reg_index]
+      if (not val) then
+        mem[reg.hl()] = bor(lshift(0x1, bit), mem[reg.hl()])
+        self:add_cycles(8)
+        return
+      end
+
+      reg[val] = bor(lshift(0x1, bit), reg[val])
     end
   end
 end
