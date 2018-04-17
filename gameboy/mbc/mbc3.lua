@@ -77,7 +77,7 @@ function Mbc3.new()
     if address >= 0xA000 and address <= 0xBFFF and self.ram_enable then
       local ram_bank = self.ram_bank
       self.external_ram[(address - 0xA000) + (ram_bank * 8 * 1024)] = value
-      self.external_ram.dirty = true
+      self.cartridge.external_ram_dirty = true
       return
     end
   end

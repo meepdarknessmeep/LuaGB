@@ -48,7 +48,7 @@ function Mbc2.new()
     -- Handle actually writing to External RAM
     if address >= 0xA000 and address <= 0xBFFF and self.ram_enable then
       self.external_ram[(address - 0xA000)] = bit32.band(0x0F, value)
-      self.external_ram.dirty = true
+      self.cartridge.external_ram_dirty = true
       return
     end
   end

@@ -90,24 +90,24 @@ function Audio.new(modules)
 
     -- initialize audio registers
     -- pulled from: http://bgb.bircd.org/pandocs.htm#powerupsequence
-    io[0x10] = 0x80
-    io[0x11] = 0xBF
-    io[0x12] = 0xF3
-    io[0x14] = 0xBF
-    io[0x16] = 0x3F
-    io[0x17] = 0x00
-    io[0x19] = 0xBF
-    io[0x1A] = 0x7F
-    io[0x1B] = 0xFF
-    io[0x1C] = 0x9F
-    io[0x1E] = 0xBF
-    io[0x20] = 0xFF
-    io[0x21] = 0x00
-    io[0x22] = 0x00
-    io[0x23] = 0xBF
-    io[0x24] = 0x77
-    io[0x25] = 0xF3
-    io[0x26] = 0xF1
+    io[1][0x10] = 0x80
+    io[1][0x11] = 0xBF
+    io[1][0x12] = 0xF3
+    io[1][0x14] = 0xBF
+    io[1][0x16] = 0x3F
+    io[1][0x17] = 0x00
+    io[1][0x19] = 0xBF
+    io[1][0x1A] = 0x7F
+    io[1][0x1B] = 0xFF
+    io[1][0x1C] = 0x9F
+    io[1][0x1E] = 0xBF
+    io[1][0x20] = 0xFF
+    io[1][0x21] = 0x00
+    io[1][0x22] = 0x00
+    io[1][0x23] = 0xBF
+    io[1][0x24] = 0x77
+    io[1][0x25] = 0xF3
+    io[1][0x26] = 0xF1
   end
 
   audio.initialize = function()
@@ -141,7 +141,7 @@ function Audio.new(modules)
   wave_pattern_tables[3] = {0,1,1,1,1,1,1,0}
 
   io.read_logic[0x26] = function()
-    local high_nybble = bit32.band(0xF0, io[0x26])
+    local high_nybble = bit32.band(0xF0, io[1][0x26])
     local low_nybble = 0
     if audio.tone1.active then
       low_nybble = low_nybble + 0x01
@@ -160,7 +160,7 @@ function Audio.new(modules)
 
   io.write_logic[ports.NR10] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR10] = byte
+    io[1][ports.NR10] = byte
     local sweep_time = bit32.rshift(bit32.band(byte, 0x70), 4)
     audio.tone1.frequency_shift_time = sweep_time * 32768
     if bit32.band(byte, 0x08) ~= 0 then
@@ -174,7 +174,7 @@ function Audio.new(modules)
   -- Channel 1 Sound Length / Wave Pattern Duty
   io.write_logic[ports.NR11] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR11] = byte
+    io[1][ports.NR11] = byte
     local wave_pattern = bit32.rshift(bit32.band(byte, 0xC0), 6)
     audio.tone1.duty_length = wave_patterns[wave_pattern]
     audio.tone1.wave_pattern = wave_pattern
@@ -186,7 +186,7 @@ function Audio.new(modules)
   -- Channel 1 Volume Envelope
   io.write_logic[ports.NR12] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR12] = byte
+    io[1][ports.NR12] = byte
     audio.tone1.volume_initial = bit32.rshift(bit32.band(byte, 0xF0), 4)
     local direction = bit32.band(byte, 0x08)
     if direction > 0 then
@@ -202,8 +202,8 @@ function Audio.new(modules)
   -- Channel 1 Frequency - Low Bits
   io.write_logic[ports.NR13] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR13] = byte
-    local freq_high = bit32.lshift(bit32.band(io[ports.NR14], 0x07), 8)
+    io[1][ports.NR13] = byte
+    local freq_high = bit32.lshift(bit32.band(io[1][ports.NR14], 0x07), 8)
     local freq_low = byte
     local freq_value = freq_high + freq_low
     audio.tone1.period = 32 * (2048 - freq_value)
@@ -213,11 +213,11 @@ function Audio.new(modules)
   -- Channel 1 Frequency and Trigger - High Bits
   io.write_logic[ports.NR14] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR14] = byte
+    io[1][ports.NR14] = byte
     local restart = (bit32.band(byte, 0x80) ~= 0)
     local continuous = (bit32.band(byte, 0x40) == 0)
     local freq_high = bit32.lshift(bit32.band(byte, 0x07), 8)
-    local freq_low = io[ports.NR13]
+    local freq_low = io[1][ports.NR13]
     local freq_value = freq_high + freq_low
 
     audio.tone1.period = 32 * (2048 - freq_value)
@@ -234,7 +234,7 @@ function Audio.new(modules)
   -- Channel 2 Sound Length / Wave Pattern Duty
   io.write_logic[ports.NR21] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR21] = byte
+    io[1][ports.NR21] = byte
     local wave_pattern = bit32.rshift(bit32.band(byte, 0xC0), 6)
     audio.tone2.duty_length = wave_patterns[wave_pattern]
     audio.tone2.wave_pattern = wave_pattern
@@ -246,7 +246,7 @@ function Audio.new(modules)
   -- Channel 2 Volume Envelope
   io.write_logic[ports.NR22] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR22] = byte
+    io[1][ports.NR22] = byte
     audio.tone2.volume_initial = bit32.rshift(bit32.band(byte, 0xF0), 4)
     local direction = bit32.band(byte, 0x08)
     if direction > 0 then
@@ -262,8 +262,8 @@ function Audio.new(modules)
   -- Channel 2 Frequency - Low Bits
   io.write_logic[ports.NR23] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR23] = byte
-    local freq_high = bit32.lshift(bit32.band(io[ports.NR24], 0x07), 8)
+    io[1][ports.NR23] = byte
+    local freq_high = bit32.lshift(bit32.band(io[1][ports.NR24], 0x07), 8)
     local freq_low = byte
     local freq_value = freq_high + freq_low
     audio.tone2.period = 32 * (2048 - freq_value)
@@ -273,11 +273,11 @@ function Audio.new(modules)
   -- Channel 2 Frequency and Trigger - High Bits
   io.write_logic[ports.NR24] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR24] = byte
+    io[1][ports.NR24] = byte
     local restart = (bit32.band(byte, 0x80) ~= 0)
     local continuous = (bit32.band(byte, 0x40) == 0)
     local freq_high = bit32.lshift(bit32.band(byte, 0x07), 8)
-    local freq_low = io[ports.NR23]
+    local freq_low = io[1][ports.NR23]
     local freq_value = freq_high + freq_low
 
     audio.tone2.period = 32 * (2048 - freq_value)
@@ -293,14 +293,14 @@ function Audio.new(modules)
   -- Channel 3 Enabled
   io.write_logic[ports.NR30] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR30] = byte
+    io[1][ports.NR30] = byte
     audio.wave3.enabled = bit32.band(byte, 0x80) ~= 0
   end
 
   -- Channel 3 Length
   io.write_logic[ports.NR31] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR31] = byte
+    io[1][ports.NR31] = byte
     local length_cycles = (256 - byte) * 4096
     audio.wave3.max_length = length_cycles
   end
@@ -313,7 +313,7 @@ function Audio.new(modules)
   volume_shift_mappings[3] = 2
   io.write_logic[ports.NR32] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR32] = byte
+    io[1][ports.NR32] = byte
     local volume_select = bit32.rshift(bit32.band(byte, 0x60), 5)
     audio.wave3.volume_shift = volume_shift_mappings[volume_select]
   end
@@ -321,8 +321,8 @@ function Audio.new(modules)
   -- Channel 3 Frequency - Low Bits
   io.write_logic[ports.NR33] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR33] = byte
-    local freq_high = bit32.lshift(bit32.band(io[ports.NR34], 0x07), 8)
+    io[1][ports.NR33] = byte
+    local freq_high = bit32.lshift(bit32.band(io[1][ports.NR34], 0x07), 8)
     local freq_low = byte
     local freq_value = freq_high + freq_low
     audio.wave3.period = 64 * (2048 - freq_value)
@@ -332,11 +332,11 @@ function Audio.new(modules)
   -- Channel 3 Frequency and Trigger - High Bits
   io.write_logic[ports.NR34] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR34] = byte
+    io[1][ports.NR34] = byte
     local restart = (bit32.band(byte, 0x80) ~= 0)
     local continuous = (bit32.band(byte, 0x40) == 0)
     local freq_high = bit32.lshift(bit32.band(byte, 0x07), 8)
-    local freq_low = io[ports.NR33]
+    local freq_low = io[1][ports.NR33]
     local freq_value = freq_high + freq_low
 
     audio.wave3.period = 64 * (2048 - freq_value)
@@ -353,7 +353,7 @@ function Audio.new(modules)
   -- Channel 4 Length
   io.write_logic[ports.NR41] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR41] = byte
+    io[1][ports.NR41] = byte
     local wave_pattern = bit32.rshift(bit32.band(byte, 0xC0), 6)
     audio.noise4.duty_length = wave_patterns[wave_pattern]
     local length_data = bit32.band(byte, 0x3F)
@@ -364,7 +364,7 @@ function Audio.new(modules)
   -- Channel 4 Volume Envelope
   io.write_logic[ports.NR42] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR42] = byte
+    io[1][ports.NR42] = byte
     audio.noise4.volume_initial = bit32.rshift(bit32.band(byte, 0xF0), 4)
     local direction = bit32.band(byte, 0x08)
     if direction > 0 then
@@ -390,7 +390,7 @@ function Audio.new(modules)
   -- Channel 4 Polynomial Counter
   io.write_logic[ports.NR43] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR43] = byte
+    io[1][ports.NR43] = byte
     local shift_clock_frequency = bit32.rshift(bit32.band(byte, 0xF0), 4)
     local wide_step = bit32.band(byte, 0x08) == 0
     local dividing_ratio = polynomial_divisors[bit32.band(byte, 0x07)]
@@ -403,7 +403,7 @@ function Audio.new(modules)
   -- Channel 4 Trigger
   io.write_logic[ports.NR44] = function(byte)
     audio.generate_pending_samples()
-    io[ports.NR44] = byte
+    io[1][ports.NR44] = byte
     local restart = (bit32.band(byte, 0x80) ~= 0)
     local continuous = (bit32.band(byte, 0x40) == 0)
 
@@ -554,7 +554,7 @@ function Audio.new(modules)
         end
 
         local byte_index = bit32.rshift(wave3.sample_index, 1)
-        local sample = io[0x30 + byte_index]
+        local sample = io[1][0x30 + byte_index]
         -- If this is an even numbered sample, shift the high nybble
         -- to the lower nybble
         if wave3.sample_index % 2 == 0 then
@@ -645,7 +645,7 @@ function Audio.new(modules)
       local sample_left = 0
       local sample_right = 0
 
-      local channels_enabled = io[ports.NR51]
+      local channels_enabled = io[1][ports.NR51]
       if bit32.band(channels_enabled, 0x80) ~= 0 and not audio.noise4.debug_disabled then
         sample_right = sample_right + noise4
       end
@@ -681,8 +681,8 @@ function Audio.new(modules)
       end
 
       -- Left/Right Channel Volume
-      local right_volume = bit32.rshift(bit32.band(io[ports.NR50], 0x70), 4)
-      local left_volume = bit32.band(io[ports.NR50], 0x07)
+      local right_volume = bit32.rshift(bit32.band(io[1][ports.NR50], 0x70), 4)
+      local left_volume = bit32.band(io[1][ports.NR50], 0x07)
 
       sample_right = sample_right * right_volume / 7
       sample_left = sample_left * left_volume / 7

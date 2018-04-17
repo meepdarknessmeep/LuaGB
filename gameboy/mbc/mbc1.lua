@@ -69,7 +69,7 @@ function Mbc1.new()
         ram_bank = self.ram_bank
       end
       self.external_ram[(address - 0xA000) + (ram_bank * 8 * 1024)] = value
-      self.external_ram.dirty = true
+      self.cartridge.external_ram_dirty = true
       return
     end
   end

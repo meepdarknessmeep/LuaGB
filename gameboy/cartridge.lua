@@ -21,8 +21,9 @@ function Cartridge.new(modules)
   local mbc3 = Mbc3.new()
   local mbc5 = Mbc5.new()
 
-  cartridge.external_ram = memory:create_block(128 * 1024)
-  cartridge.external_ram.dirty = false
+  cartridge.external_ram = memory:create_raw_memory(128 * 1024)
+  cartridge.external_ram_size = 128 * 1024
+  cartridge.external_ram_dirty = false
 
   local mbc_mappings = {}
   mbc_mappings[0x00] = {mbc=mbc_none, options={}}
@@ -52,11 +53,11 @@ function Cartridge.new(modules)
 
   cartridge.load = function(file_data, size)
     print("Reading cartridge into memory...")
-    cartridge.raw_data = memory:create_block(size)
+    cartridge.raw_data = memory:create_raw_memory(size)
     for i = 0, size - 1 do
       cartridge.raw_data[i] = file_data:byte(i + 1, i + 1)
     end
-    print("Read " .. math.ceil(#cartridge.raw_data / 1024) .. " kB")
+    print("Read " .. math.ceil(size / 1024) .. " kB")
     cartridge.header = rom_header.parse_cartridge_header(cartridge.raw_data)
     rom_header.print_cartridge_header(cartridge.header)
 
@@ -68,6 +69,7 @@ function Cartridge.new(modules)
       print("Using mapper: ", cartridge.header.mbc_name)
       MBC.raw_data = cartridge.raw_data
       MBC.external_ram = cartridge.external_ram
+      MBC.cartridge = cartridge
       -- Cart ROM
       memory:install_hooks(0x0000, 0x8000, MBC)
       -- External RAM
@@ -87,15 +89,6 @@ function Cartridge.new(modules)
     else
       cartridge.gameboy.type = cartridge.gameboy.types.dmg
     end
-
-    -- Add a guard to cartridge.raw_data, such that any out-of-bounds reads return 0x00
-    cartridge.raw_data.mt = {}
-    cartridge.raw_data.mt.__index = function(table, address)
-      -- Data doesn't exist? Tough luck; return 0x00
-      return 0x00
-    end
-
-    setmetatable(cartridge.raw_data, cartridge.raw_data.mt)
   end
 
   cartridge.reset = function()

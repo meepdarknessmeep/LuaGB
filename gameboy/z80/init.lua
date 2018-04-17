@@ -107,19 +107,19 @@ opcodes[0x10] = function(self, reg, flags, mem)
     print("Unimplemented WEIRDNESS after 0x10")
   end
 
-  if band(self.io[0x4D], 0x01) ~= 0 then
+  if band(self.io[1][0x4D], 0x01) ~= 0 then
     --speed switch!
     print("Switching speeds!")
     if z80.double_speed then
       self.add_cycles = add_cycles_normal
       self.double_speed = false
-      io[0x4D] = band(io[0x4D], 0x7E) + 0x00
+      io[1][0x4D] = band(io[1][0x4D], 0x7E) + 0x00
       timers:set_normal_speed()
       print("Switched to Normal Speed")
     else
       self.add_cycles = add_cycles_double
       self.double_speed = true
-      io[0x4D] = band(io[0x4D], 0x7E) + 0x80
+      io[1][0x4D] = band(io[1][0x4D], 0x7E) + 0x80
       timers:set_double_speed()
       print("Switched to Double Speed")
     end
@@ -141,10 +141,10 @@ end
 -- For any opcodes that at this point are undefined,
 -- go ahead and "define" them with the following panic
 -- function
-  local function undefined_opcode(self, reg, flags, mem)
-    local opcode = mem[band(reg[1] - 1, 0xFFFF)]
-    print(string.format("Unhandled opcode!: %x", opcode))
-  end
+local function undefined_opcode(self, reg, flags, mem)
+  local opcode = mem[band(reg[1] - 1, 0xFFFF)]
+  print(string.format("Unhandled opcode!: %x", opcode))
+end
 
 for i = 0, 0xFF do
   if not opcodes[i] then
@@ -274,7 +274,7 @@ function Z80.new(modules)
   end
 
   z80.service_interrupt = function()
-    local fired = band(io[0xFF], io[0x0F])
+    local fired = band(io[1][0xFF], io[1][0x0F])
     if fired ~= 0 then
       z80.halted = 0
       if interrupts.enabled ~= 0 then
@@ -291,7 +291,7 @@ function Z80.new(modules)
           count = count + 1
         end
         -- we need to clear the corresponding bit first, to avoid infinite loops
-        io[0x0F] = bxor(lshift(0x1, count), io[0x0F])
+        io[1][0x0F] = bxor(lshift(0x1, count), io[1][0x0F])
 
         reg[2] = band(0xFFFF, reg[2] - 1)
         memory[reg[2]] = rshift(band(reg[1], 0xFF00), 8)

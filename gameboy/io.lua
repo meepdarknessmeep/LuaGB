@@ -7,7 +7,9 @@ local bnot = bit32.bnot
 
 function Io.new(modules)
   local memory = modules.memory
-  local io = memory:create_block(0x100)
+  local io = {
+    memory:create_raw_memory(0x100)
+  }
 
   io.ports = {
     -- Port names pulled from Pan Docs, starting here:
@@ -107,7 +109,7 @@ function Io.new(modules)
     if self.read_logic[offset] then
       return self.read_logic[offset]()
     else
-      return self[offset]
+      return self[1][offset]
     end
   end
 
@@ -115,7 +117,7 @@ function Io.new(modules)
     local offset = addr - 0xFF00
     local mask = self.write_mask[offset]
     if mask then
-      value = bor(band(value, mask), band(self[offset], bnot(mask)))
+      value = bor(band(value, mask), band(self[1][offset], bnot(mask)))
     end
     if io.write_logic[offset] then
       -- Some addresses (mostly IO ports) have fancy logic or do strange things on
@@ -123,31 +125,31 @@ function Io.new(modules)
       io.write_logic[offset](value)
       return
     end
-    self[offset] = value
+    self[1][offset] = value
   end
 
   io.reset = function(gameboy)
     io.gameboy = gameboy
 
     for i = 0, #io do
-      io[i] = 0
+      io[1][i] = 0
     end
 
     -- Set io registers to post power-on values
     -- Sound Enable must be set to F1
-    io[0x26] = 0xF1
+    io[1][0x26] = 0xF1
 
-    io[ports.LCDC] = 0x91
-    io[ports.BGP ] = 0xFC
-    io[ports.OBP0] = 0xFF
-    io[ports.OBP1] = 0xFF
+    io[1][ports.LCDC] = 0x91
+    io[1][ports.BGP ] = 0xFC
+    io[1][ports.OBP0] = 0xFF
+    io[1][ports.OBP1] = 0xFF
   end
 
   io.save_state = function()
     local state = {}
 
     for i = 0, 0xFF do
-      state[i] = io[i]
+      state[i] = io[1][i]
     end
 
     return state
@@ -155,7 +157,7 @@ function Io.new(modules)
 
   io.load_state = function(state)
     for i = 0, 0xFF do
-      io[i] = state[i]
+      io[1][i] = state[i]
     end
   end
 

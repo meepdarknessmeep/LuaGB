@@ -84,11 +84,11 @@ function Graphics.new(modules)
 
   io.write_logic[0x4F] = function(byte)
     if graphics.gameboy.type == graphics.gameboy.types.color then
-      io[0x4F] = bit32.band(0x1, byte)
+      io[1][0x4F] = bit32.band(0x1, byte)
       graphics.vram.bank = bit32.band(0x1, byte)
     else
       -- Not sure if the write mask should apply in DMG / SGB mode
-      io[0x4F] = byte
+      io[1][0x4F] = byte
     end
   end
 
@@ -195,8 +195,8 @@ function Graphics.new(modules)
     end
 
     graphics.cache.refreshAll()
-    io.write_logic[ports.STAT](io[ports.STAT])
-    io.write_logic[ports.LCDC](io[ports.LCDC])
+    io.write_logic[ports.STAT](io[1][ports.STAT])
+    io.write_logic[ports.LCDC](io[1][ports.LCDC])
   end
 
   local time_at_this_mode = function()
@@ -223,7 +223,7 @@ function Graphics.new(modules)
     local status = graphics.registers.status
 
     lcdstat =
-      (status.lyc_interrupt_enabled and io[ports.LY] == io[ports.LYC]) or
+      (status.lyc_interrupt_enabled and io[1][ports.LY] == io[1][ports.LYC]) or
       (status.oam_interrupt_enabled and status.mode == 2) or
       (status.vblank_interrupt_enabled and status.mode == 1) or
       (status.hblank_interrupt_enabled and status.mode == 0)
@@ -238,13 +238,13 @@ function Graphics.new(modules)
 
   io.write_logic[ports.LY] = function(byte)
     -- LY, writes reset the counter
-    io[ports.LY] = 0
+    io[1][ports.LY] = 0
     graphics.refresh_lcdstat()
   end
 
   io.write_logic[ports.LYC] = function(byte)
     -- LY, writes reset the counter
-    io[ports.LYC] = byte
+    io[1][ports.LYC] = byte
     graphics.refresh_lcdstat()
   end
 
@@ -253,16 +253,16 @@ function Graphics.new(modules)
   handle_mode[0] = function()
     if timers.system_clock - graphics.last_edge > 204 then
       graphics.last_edge = graphics.last_edge + 204
-      io[ports.LY] = io[ports.LY] + 1
-      if io[ports.LY] == io[ports.LYC] then
+      io[1][ports.LY] = io[1][ports.LY] + 1
+      if io[1][ports.LY] == io[1][ports.LYC] then
         -- set the LY compare bit
-        io[ports.STAT] = bit32.bor(io[ports.STAT], 0x4)
+        io[1][ports.STAT] = bit32.bor(io[1][ports.STAT], 0x4)
       else
         -- clear the LY compare bit
-        io[ports.STAT] = bit32.band(io[ports.STAT], 0xFB)
+        io[1][ports.STAT] = bit32.band(io[1][ports.STAT], 0xFB)
       end
 
-      if io[ports.LY] >= 144 then
+      if io[1][ports.LY] >= 144 then
         graphics.registers.status.SetMode(1)
         graphics.vblank_count = graphics.vblank_count + 1
         interrupts.raise(interrupts.VBlank)
@@ -280,25 +280,25 @@ function Graphics.new(modules)
   handle_mode[1] = function()
     if timers.system_clock - graphics.last_edge > 456 then
       graphics.last_edge = graphics.last_edge + 456
-      io[ports.LY] = io[ports.LY] + 1
+      io[1][ports.LY] = io[1][ports.LY] + 1
       graphics.refresh_lcdstat()
     else
       graphics.next_edge = graphics.last_edge + 456
     end
 
-    if io[ports.LY] >= 154 then
-      io[ports.LY] = 0
+    if io[1][ports.LY] >= 154 then
+      io[1][ports.LY] = 0
       graphics.initialize_frame()
       graphics.registers.status.SetMode(2)
       graphics.refresh_lcdstat()
     end
 
-    if io[ports.LY] == io[ports.LYC] then
+    if io[1][ports.LY] == io[1][ports.LYC] then
       -- set the LY compare bit
-      io[ports.STAT] = bit32.bor(io[ports.STAT], 0x4)
+      io[1][ports.STAT] = bit32.bor(io[1][ports.STAT], 0x4)
     else
       -- clear the LY compare bit
-      io[ports.STAT] = bit32.band(io[ports.STAT], 0xFB)
+      io[1][ports.STAT] = bit32.band(io[1][ports.STAT], 0xFB)
     end
   end
 
@@ -319,7 +319,7 @@ function Graphics.new(modules)
     graphics.draw_next_pixels(duration)
     if timers.system_clock - graphics.last_edge > 172 then
       graphics.last_edge = graphics.last_edge + 172
-      graphics.draw_sprites_into_scanline(io[ports.LY], scanline_data.bg_index, scanline_data.bg_priority)
+      graphics.draw_sprites_into_scanline(io[1][ports.LY], scanline_data.bg_index, scanline_data.bg_priority)
       graphics.registers.status.SetMode(0)
       -- If enabled, fire an HBlank interrupt
       graphics.refresh_lcdstat()
@@ -337,7 +337,7 @@ function Graphics.new(modules)
       graphics.last_edge = timers.system_clock
       graphics.next_edge = timers.system_clock
       graphics.registers.status.SetMode(0)
-      io[ports.LY] = 0
+      io[1][ports.LY] = 0
       graphics.refresh_lcdstat()
     end
   end
@@ -354,21 +354,21 @@ function Graphics.new(modules)
 
   graphics.initialize_frame = function()
     -- latch WY at the beginning of the *frame*
-    frame_data.window_pos_y = io[ports.WY]
+    frame_data.window_pos_y = io[1][ports.WY]
     frame_data.window_draw_y = 0
   end
 
   graphics.initialize_scanline = function()
     scanline_data.x = 0
 
-    scanline_data.bg_tile_x = math.floor(io[ports.SCX] / 8)
-    scanline_data.bg_tile_y = math.floor((io[ports.LY] + io[ports.SCY]) / 8)
+    scanline_data.bg_tile_x = math.floor(io[1][ports.SCX] / 8)
+    scanline_data.bg_tile_y = math.floor((io[1][ports.LY] + io[1][ports.SCY]) / 8)
     if scanline_data.bg_tile_y >= 32 then
       scanline_data.bg_tile_y = scanline_data.bg_tile_y - 32
     end
 
-    scanline_data.sub_x = io[ports.SCX] % 8
-    scanline_data.sub_y = (io[ports.LY] + io[ports.SCY]) % 8
+    scanline_data.sub_x = io[1][ports.SCX] % 8
+    scanline_data.sub_y = (io[1][ports.LY] + io[1][ports.SCY]) % 8
 
     scanline_data.current_map = graphics.registers.background_tilemap
     scanline_data.current_map_attr = graphics.registers.background_attr
@@ -379,8 +379,8 @@ function Graphics.new(modules)
   end
 
   graphics.switch_to_window = function()
-    local ly = io[ports.LY]
-    local w_x = io[ports.WX] - 7
+    local ly = io[1][ports.LY]
+    local w_x = io[1][ports.WX] - 7
     if graphics.registers.window_enabled and scanline_data.x >= w_x and ly >= frame_data.window_pos_y then
       -- switch to window map
       scanline_data.current_map = graphics.registers.window_tilemap
@@ -401,7 +401,7 @@ function Graphics.new(modules)
   end
 
   graphics.draw_next_pixels = function(duration)
-    local ly = io[ports.LY]
+    local ly = io[1][ports.LY]
     local game_screen = graphics.game_screen
 
     while scanline_data.x < duration and scanline_data.x < 160 do
@@ -436,8 +436,8 @@ function Graphics.new(modules)
           scanline_data.bg_tile_x = scanline_data.bg_tile_x - 32
         end
         if not scanline_data.window_active then
-          scanline_data.sub_y = (ly + io[ports.SCY]) % 8
-          scanline_data.bg_tile_y = math.floor((ly + io[ports.SCY]) / 8)
+          scanline_data.sub_y = (ly + io[1][ports.SCY]) % 8
+          scanline_data.bg_tile_y = math.floor((ly + io[1][ports.SCY]) / 8)
           if scanline_data.bg_tile_y >= 32 then
             scanline_data.bg_tile_y = scanline_data.bg_tile_y - 32
           end

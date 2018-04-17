@@ -93,11 +93,11 @@ end
 
 function Gameboy:run_until_vblank()
   local instructions = 0
-  while self.io[self.io.ports.LY] == 144 and instructions < 100000 do
+  while self.io[1][self.io.ports.LY] == 144 and instructions < 100000 do
     self:step()
     instructions = instructions + 1
   end
-  while self.io[self.io.ports.LY] ~= 144 and instructions < 100000  do
+  while self.io[1][self.io.ports.LY] ~= 144 and instructions < 100000  do
     self:step()
     instructions = instructions + 1
   end
@@ -105,9 +105,9 @@ function Gameboy:run_until_vblank()
 end
 
 function Gameboy:run_until_hblank()
-  local old_scanline = self.io[self.io.ports.LY]
+  local old_scanline = self.io[1][self.io.ports.LY]
   local instructions = 0
-  while old_scanline == self.io[self.io.ports.LY] and instructions < 100000 do
+  while old_scanline == self.io[1][self.io.ports.LY] and instructions < 100000 do
     self:step()
     instructions = instructions + 1
   end

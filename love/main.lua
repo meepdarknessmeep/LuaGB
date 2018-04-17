@@ -89,7 +89,12 @@ profile_enabled = false
 
 function LuaGB:save_ram()
   local filename = "saves/" .. self.game_filename .. ".sav"
-  local save_data = binser.serialize(self.gameboy.cartridge.external_ram)
+  local ram = {}
+  for i = 0, self.gameboy.cartridge.external_ram_size - 1 do
+    ram[i] = self.gameboy.cartridge.external_ram[i]
+  end
+  ram.dirty = self.gameboy.cartridge.external_ram_dirty
+  local save_data = binser.serialize(ram)
   if love.filesystem.write(filename, save_data) then
     print("Successfully wrote SRAM to: ", filename)
   else
@@ -110,6 +115,7 @@ function LuaGB:load_ram()
         for i = 0, #save_data[1] do
           self.gameboy.cartridge.external_ram[i] = save_data[1][i]
         end
+        self.gameboy.cartridge.external_ram_dirty = save_data[1].dirty
         print("Loaded SRAM: ", filename)
       else
         print("Error parsing SRAM data for ", filename)
@@ -477,12 +483,12 @@ function love.update()
       LuaGB.gameboy:run_until_vblank()
     end
   end
-  if LuaGB.gameboy.cartridge.external_ram.dirty then
+  if LuaGB.gameboy.cartridge.external_ram_dirty then
     LuaGB.save_delay = LuaGB.save_delay + 1
   end
   if LuaGB.save_delay > 60 * 10 then
     LuaGB.save_delay = 0
-    LuaGB.gameboy.cartridge.external_ram.dirty = false
+    LuaGB.gameboy.cartridge.external_ram_dirty = false
     LuaGB:save_ram()
   end
 end

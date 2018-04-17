@@ -43,6 +43,9 @@ function Memory.new(modules)
   function memory:create_block(size)
     return loadtable(size)
   end
+  function memory:create_raw_memory(size)
+    return loadbytes(size)
+  end
 
   function memory:install_hooks(address_start, size, hooks)
     local hook = {
@@ -58,7 +61,7 @@ function Memory.new(modules)
   end
 
   local wram1 = {
-    loadbytes(4 * 7 * 1024)
+    memory:create_raw_memory(4 * 7 * 1024)
   }
 
   memory.reset = function()
