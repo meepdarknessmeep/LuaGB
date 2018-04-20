@@ -1,8 +1,6 @@
 local bit32 = require("bit")
 local ffi   = require "ffi"
 
-local graphics, modules -- TODO: ffi more stuff to do this non-hackily
-
 local function new_registers(registers, cache)
   for k,v in pairs {
     display_enabled = true,
@@ -57,10 +55,8 @@ end
 
 local Registers = {}
 
-function Registers.new(registers, g, m, cache)
-  graphics, modules = g, m
-  local gameboy = m
-  local io = modules.io
+function Registers.new(registers, g, gameboy, cache)
+  local io = gameboy.io
   local ports = io.ports
 
   registers = new_registers(registers, cache)

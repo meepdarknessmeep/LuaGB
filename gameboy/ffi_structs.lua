@@ -116,32 +116,13 @@ typedef struct _LuaGBGraphics {
     uint32_t last_edge;
     uint32_t next_edge;
     bool lcdstat;
-    struct _LuaGBGraphicsVRam {
-        uint8_t mem[0x8000];
-        uint8_t bank;
-        uint8_t (*getter)(struct _LuaGBGraphicsVRam *, LuaGBAddress);
-        void (*setter)(struct _LuaGBGraphicsVRam *, LuaGBAddress, uint8_t);
-    } vram;
-    struct _LuaGBGraphicsOAM {
-        uint8_t mem[0xA0];
-        uint8_t (*getter)(struct _LuaGBGraphicsOAM *, LuaGBAddress);
-        void (*setter)(struct _LuaGBGraphicsOAM *, LuaGBAddress, uint8_t);
-    } oam;
+    uint8_t vram[0x8000];
+    uint8_t vram_bank;
+    uint8_t oam[0xA0];
     LuaGBPaletteColor game_screen[144 * 160];
 
     LuaGBGraphicRegisters registers;
     LuaGBPalette palette;
     LuaGBTileCache cache;
-    void (*clear_screen)();
-    void (*initialize)();
-    void (*reset)();
-    void (*refresh_lcdstat)();
-    void (*update)();
-    void (*initialize_frame)();
-    void (*initialize_scanline)();
-    void (*switch_to_window)();
-    void (*draw_next_pixels)(double duration);
-    void (*getIndexFromTilemap)(uint8_t, uint8_t, uint8_t, uint8_t);
-    void (*draw_sprites_into_scanline)(uint8_t, uint8_t *, uint8_t *);
 } LuaGBGraphics;
 ]]

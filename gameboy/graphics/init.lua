@@ -13,9 +13,9 @@ end
 
 local function new_graphics(modules)
   local graphics = {
-    --[[palette = {},
+    palette = {},
     registers = {},
-    cache = {},]]
+    cache = {},
     -- Internal Variables
     vblank_count = 0,
     last_edge = 0,
@@ -60,9 +60,26 @@ local function new_graphics(modules)
   return graphics
 end
 
-if (false and ffi) then
+if (ffi) then
   function new_graphics(modules)
     local graphics = ffi.new "LuaGBGraphics"
+
+    graphics = setmetatable({
+      clear_screen = false,
+      initialize = false,
+      reset = false,
+      refresh_lcdstat = false,
+      update = false,
+      initialize_frame = false,
+      initialize_scanline = false,
+      switch_to_window = false,
+      draw_next_pixels = false,
+      getIndexFromTilemap = false,
+      draw_sprites_into_scanline = false,
+    }, {
+      __index = graphics,
+      __newindex = graphics
+    })
 
     Cache.new(graphics.cache, graphics, modules)
     Palette.new(graphics.palette, graphics, modules)
@@ -79,7 +96,6 @@ function Graphics.new(gameboy)
   local io = gameboy.io
   local memory = gameboy.memory
   local timers = gameboy.timers
-  local processor = gameboy.processor
 
   local graphics = new_graphics(gameboy)
 
@@ -94,19 +110,22 @@ function Graphics.new(gameboy)
     end
   end
 
-  function graphics.vram:getter(address)
-    return self.mem[address - 0x8000 + (16 * 1024 * self.bank)]
+  local vram_hook = {
+    mem = graphics.vram
+  }
+  function vram_hook:getter(address)
+    return self.mem[address - 0x8000 + (16 * 1024 * graphics.vram_bank)]
   end
-  function graphics.vram:setter(address, value)
+  function vram_hook:setter(address, value)
     local offset = address - 0x8000
-    self.mem[offset + (0x4000 * self.bank)] = value
+    self.mem[offset + (0x4000 * graphics.vram_bank)] = value
     if (offset <= 0x17FF) then
-      graphics.cache.refreshTile(offset, self.bank)
+      graphics.cache.refreshTile(offset, graphics.vram_bank)
     end
     if address >= 0x9800 and address <= 0x9BFF then
       local x = address % 32
       local y = math.floor((address - 0x9800) / 32)
-      if self.bank == 1 then
+      if graphics.vram_bank == 1 then
         graphics.cache.refreshAttributes(graphics.cache.map_0_attr, x, y, offset)
       end
       graphics.cache.refreshTileIndex(x, y, 0x1800, graphics.cache.map_0, graphics.cache.map_0_attr)
@@ -114,27 +133,30 @@ function Graphics.new(gameboy)
     if address >= 0x9C00 and address <= 0x9FFF then
       local x = address % 32
       local y = math.floor((address - 0x9C00) / 32)
-      if self.bank == 1 then
+      if graphics.vram_bank == 1 then
         graphics.cache.refreshAttributes(graphics.cache.map_1_attr, x, y, offset)
       end
       graphics.cache.refreshTileIndex(x, y, 0x1C00, graphics.cache.map_1, graphics.cache.map_1_attr)
     end
   end
-  memory:install_hooks(0x8000, 0x2000, graphics.vram)
+  memory:install_hooks(0x8000, 0x2000, vram_hook)
 
-  function graphics.oam:getter(address)
+  local oam_hook = {
+    mem = graphics.oam
+  }
+  function oam_hook:getter(address)
     return self.mem[address - 0xFE00]
   end
-  function graphics.oam:setter(address, byte)
+  function oam_hook:setter(address, byte)
     self.mem[address - 0xFE00] = byte
     graphics.cache.refreshOamEntry(math.floor((address - 0xFE00) / 4))
   end
-  memory:install_hooks(0xFE00, 0xA0, graphics.oam)
+  memory:install_hooks(0xFE00, 0xA0, oam_hook)
 
   io.write_logic[0x4F] = function(byte)
     if gameboy.type == gameboy.types.color then
       io[1][0x4F] = bit32.band(0x1, byte)
-      graphics.vram.bank = bit32.band(0x1, byte)
+      graphics.vram_bank = bit32.band(0x1, byte)
     else
       -- Not sure if the write mask should apply in DMG / SGB mode
       io[1][0x4F] = byte
@@ -153,17 +175,17 @@ function Graphics.new(gameboy)
 
     -- zero out all of VRAM:
     for i = 0, (16 * 2 * 1024) - 1 do
-      graphics.vram.mem[i] = 0
+      graphics.vram[i] = 0
     end
 
     -- zero out all of OAM
     for i = 0, 0x9F do
-      graphics.oam.mem[i] = 0
+      graphics.oam[i] = 0
     end
 
     graphics.vblank_count = 0
     graphics.last_edge = 0
-    graphics.vram.bank = 0
+    graphics.vram_bank = 0
     graphics.lcdstat = false
 
     graphics.clear_screen()
@@ -176,14 +198,14 @@ function Graphics.new(gameboy)
 
     state.vram = {}
     for i = 0, (16 * 2 * 1024) - 1 do
-      state.vram[i] = graphics.vram.mem[i]
+      state.vram[i] = graphics.vram[i]
     end
 
-    state.vram_bank = graphics.vram.bank
+    state.vram_bank = graphics.vram_bank
 
     state.oam = {}
     for i = 0, 0x9F do
-      state.oam[i] = graphics.oam.mem[i]
+      state.oam[i] = graphics.oam[i]
     end
 
     state.vblank_count = graphics.vblank_count
@@ -216,13 +238,13 @@ function Graphics.new(gameboy)
 
   graphics.load_state = function(state)
     for i = 0, (16 * 2 * 1024) - 1 do
-      graphics.vram.mem[i] = state.vram[i]
+      graphics.vram[i] = state.vram[i]
     end
 
-    graphics.vram.bank = state.vram_bank
+    graphics.vram_bank = state.vram_bank
 
     for i = 0, 0x9F do
-      graphics.oam.mem[i] = state.oam[i]
+      graphics.oam[i] = state.oam[i]
     end
     graphics.vblank_count = state.vblank_count
     graphics.last_edge = state.last_edge
@@ -409,7 +431,7 @@ function Graphics.new(gameboy)
     scanline_data.window_active = false
   end
 
-  graphics.switch_to_window = function()
+  local switch_to_window = function()
     local ly = io[1][ports.LY]
     local w_x = io[1][ports.WX] - 7
     if graphics.registers.window_enabled and scanline_data.x >= w_x and ly >= frame_data.window_pos_y then
@@ -419,11 +441,9 @@ function Graphics.new(gameboy)
       scanline_data.bg_tile_x = math.floor((scanline_data.x - w_x) / 8)
       scanline_data.bg_tile_y = math.floor(frame_data.window_draw_y / 8)
       scanline_data.sub_x = (scanline_data.x - w_x) % 8
-      scanline_data.sub_y = (frame_data.window_draw_y) % 8
+      scanline_data.sub_y = frame_data.window_draw_y % 8
       frame_data.window_draw_y = frame_data.window_draw_y + 1
-      if frame_data.window_draw_y > 143 then
-        frame_data.window_draw_y = 143
-      end
+      frame_data.window_draw_y = math.min(frame_data.window_draw_y, 143)
 
       scanline_data.active_attr = scanline_data.current_map_attr[scanline_data.bg_tile_x][scanline_data.bg_tile_y]
       scanline_data.active_tile = scanline_data.current_map[scanline_data.bg_tile_x][scanline_data.bg_tile_y]
@@ -434,11 +454,13 @@ function Graphics.new(gameboy)
   graphics.draw_next_pixels = function(duration)
     local ly = io[1][ports.LY]
     local game_screen = graphics.game_screen
+    local scanline_data = scanline_data
 
-    while scanline_data.x < duration and scanline_data.x < 160 do
+    local min = math.min(duration, 160)
+    while scanline_data.x < min do
       local dx = scanline_data.x
       if not scanline_data.window_active then
-        graphics.switch_to_window()
+        switch_to_window()
       end
 
       local bg_index = 0 --default, in case no background is enabled
@@ -456,6 +478,7 @@ function Graphics.new(gameboy)
       scanline_data.bg_priority[scanline_data.x] = scanline_data.active_attr.priority
 
       scanline_data.x = scanline_data.x  + 1
+      
       scanline_data.sub_x = scanline_data.sub_x  + 1
       if scanline_data.sub_x > 7 then
         -- fetch next tile

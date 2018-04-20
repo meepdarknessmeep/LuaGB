@@ -1,9 +1,7 @@
 local bit32 = require("bit")
 local ffi   = require "ffi"
 
-local graphics, gameboy -- TODO: ffi graphics to enable support for non hacky solution
-
-local function new_cache(cache)
+local function new_cache(cache, graphics, gameboy)
   cache.tiles = {}
   cache.tiles_h_flipped = {}
   cache.map_0 = {}
@@ -81,7 +79,7 @@ local function new_cache(cache)
 end
 
 if (ffi) then
-  function new_cache(cache)
+  function new_cache(cache, graphics, gameboy)
     cache = cache or ffi.new "LuaGBTileCache"
     cache.reset = function()
       for i = 0, 768 - 1 do
@@ -143,13 +141,12 @@ end
 
 local Cache = {}
 
-function Cache.new(cache, g, gb)
-  graphics, gameboy = g, gb
+function Cache.new(cache, graphics, gameboy)
 
-  local cache = new_cache(cache)
+  cache = new_cache(cache, graphics, gameboy)
 
   cache.refreshOamEntry = function(index)
-    local mem = graphics.oam.mem
+    local mem = graphics.oam
     local y = mem[index * 4 + 0] - 16
     local x = mem[index * 4 + 1] - 8
     local tile_index = mem[index * 4 + 2]
@@ -187,7 +184,7 @@ function Cache.new(cache, g, gb)
   end
 
   cache.refreshAttributes = function(map_attr, x, y, address)
-    local data = graphics.vram.mem[address + (16 * 1024)]
+    local data = graphics.vram[address + (16 * 1024)]
     local attr = map_attr[x][y]
     if gameboy.type == gameboy.types.color then
       attr.palette = graphics.palette.color_bg[bit32.band(data, 0x07)]
@@ -206,8 +203,8 @@ function Cache.new(cache, g, gb)
     local y = math.floor((address % 16) / 2)
     -- kill the lower bit
     address = bit32.band(address, 0xFFFE)
-    local lower_bits = graphics.vram.mem[address + (16 * 1024 * bank)]
-    local upper_bits = graphics.vram.mem[address + (16 * 1024 * bank) + 1]
+    local lower_bits = graphics.vram[address + (16 * 1024 * bank)]
+    local upper_bits = graphics.vram[address + (16 * 1024 * bank) + 1]
     for x = 0, 7 do
       local palette_index = bit32.band(bit32.rshift(lower_bits, 7 - x), 0x1) + (bit32.band(bit32.rshift(upper_bits, 7 - x), 0x1) * 2)
       cache.tiles[tile_index][x][y] = palette_index
@@ -225,7 +222,7 @@ function Cache.new(cache, g, gb)
   end
 
   cache.refreshTileIndex = function(x, y, address, map, attr)
-    local tile_index = graphics.vram.mem[address + (y * 32) + x]
+    local tile_index = graphics.vram[address + (y * 32) + x]
     if graphics.registers.tile_select == 0x9000 then
       if tile_index > 127 then
         tile_index = tile_index - 256

@@ -98,10 +98,7 @@ function Palette.new(palette, graphics, modules)
   local io = modules.io
   local ports = io.ports
 
-  local palette = new_palette(palette)
-
-
-
+  palette = new_palette(palette)
 
   palette.set_dmg_colors = function(pal_0, pal_1, pal_2, pal_3)
     palette.dmg_colors[0] = pal_0

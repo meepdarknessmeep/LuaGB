@@ -19,7 +19,7 @@ oam.draw_sprite = function(sprite_address, sx, sy, sprite_size)
   local ports = oam.gameboy.io.ports
 
   local sprite = graphics.cache.oam[(sprite_address - 0xFE00) / 4]
-  local sprite_flags = graphics.oam.mem[sprite_address + 3]
+  local sprite_flags = graphics.oam[sprite_address + 3]
 
   for y = 0, (sprite_size - 1) do
     for x = 0, 7 do
