@@ -295,15 +295,15 @@ function LuaGB:draw_game_screen(dx, dy, scale)
   local stride = image_data:getWidth()
   for y = 0, 143 do
     for x = 0, 159 do
+      local v_pixel = pixels[y * 160 + x]
       if raw_image_data then
-        local pixel = raw_image_data[y*stride+x]
-        local v_pixel = pixels[y][x]
+        local pixel = raw_image_data[y * stride + x]
         pixel.r = v_pixel[1]
         pixel.g = v_pixel[2]
         pixel.b = v_pixel[3]
         pixel.a = 255
       else
-        image_data:setPixel(x, y, pixels[y][x][1], pixels[y][x][2], pixels[y][x][3], 255)
+        image_data:setPixel(x, y, v_pixel[1], v_pixel[2], v_pixel[3], 255)
       end
     end
   end

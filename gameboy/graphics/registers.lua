@@ -3,8 +3,8 @@ local ffi   = require "ffi"
 
 local graphics, modules -- TODO: ffi more stuff to do this non-hackily
 
-local function new_registers(cache)
-  return {
+local function new_registers(registers, cache)
+  for k,v in pairs {
     display_enabled = true,
     window_tilemap = cache.map_0,
     window_attr = cache.map_0_attr,
@@ -23,13 +23,15 @@ local function new_registers(cache)
       oam_interrupt_enabled = false,
       vblank_interrupt_enabled = false,
       hblank_interrupt_enabled = false
-    }
-  }
+    } 
+  } do
+    registers[k] = v
+  end
 end
 
 if (ffi) then
-  function new_registers(cache)
-    local registers = ffi.new "LuaGBRegisters"
+  function new_registers(registers, cache)
+    registers = registers or ffi.new "LuaGBGraphicRegisters"
     registers.display_enabled = true
     registers.window_tilemap = cache.map_0
     registers.window_attr = cache.map_0_attr
@@ -55,12 +57,13 @@ end
 
 local Registers = {}
 
-function Registers.new(g, m, cache)
+function Registers.new(registers, g, m, cache)
   graphics, modules = g, m
+  local gameboy = m
   local io = modules.io
   local ports = io.ports
 
-  local registers = new_registers(cache)
+  registers = new_registers(registers, cache)
   local status = registers.status
 
   io.write_logic[ports.LCDC] = function(byte)
@@ -72,7 +75,7 @@ function Registers.new(g, m, cache)
     registers.large_sprites   = bit32.band(0x04, byte) ~= 0
     registers.sprites_enabled = bit32.band(0x02, byte) ~= 0
 
-    if graphics.gameboy.type == graphics.gameboy.types.color then
+    if gameboy.type == gameboy.types.color then
       registers.oam_priority = bit32.band(0x01, byte) == 0
     else
       registers.background_enabled = bit32.band(0x01, byte) ~= 0

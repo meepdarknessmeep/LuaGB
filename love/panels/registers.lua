@@ -102,7 +102,7 @@ end
 
 registers.print_status_block = function(gameboy, x, y)
   local status = {
-    {"Frame", function() return gameboy.graphics.vblank_count end},
+    {"Frame", function() return tonumber(gameboy.graphics.vblank_count) end},
     {"Clock", function() return gameboy.timers.system_clock end}
   }
   love.graphics.setColor(0, 0, 0)

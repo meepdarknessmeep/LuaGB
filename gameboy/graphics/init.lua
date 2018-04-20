@@ -1,55 +1,105 @@
 local bit32 = require("bit")
+local ffi   = require "ffi"
 
 local Cache = require("gameboy/graphics/cache")
 local Palette = require("gameboy/graphics/palette")
 local Registers = require("gameboy/graphics/registers")
 
+local function setcolor(to, r, g, b)
+  to[1] = r
+  to[2] = g
+  to[3] = b
+end
+
+local function new_graphics(modules)
+  local graphics = {
+    --[[palette = {},
+    registers = {},
+    cache = {},]]
+    -- Internal Variables
+    vblank_count = 0,
+    last_edge = 0,
+    next_edge = 0,
+    lcdstat = false,
+    -- color[144][160]
+    game_screen = {},
+    lcd = {},
+    vram = {
+      mem = modules.memory:create_block(16 * 2 * 1024),
+    },
+    oam = {
+      mem = modules.memory:create_block(0xA0), -- (0xA0, 0xFE00)
+    },
+    scanline_data = {
+      x = 0,
+      bg_tile_x = 0,
+      bg_tile_y = 0,
+      sub_x = 0,
+      sub_y = 0,
+      active_tile = nil,
+      active_attr = nil,
+      current_map = nil,
+      current_map_attr = nil,
+      window_active = false,
+      bg_index = {},
+      bg_priority = {},
+      active_palette = nil
+    }
+  }
+
+  for y = 0, 143 * 160, 160 do
+    for x = 0, 159 do
+      graphics.game_screen[y + x] = {0, 0, 0}
+    end
+  end
+
+  graphics.cache = Cache.new(graphics.cache, graphics, modules)
+  graphics.palette = Palette.new(graphics.palette, graphics, modules)
+  graphics.registers = Registers.new(graphics.registers, graphics, modules, graphics.cache)
+
+  return graphics
+end
+
+if (false and ffi) then
+  function new_graphics(modules)
+    local graphics = ffi.new "LuaGBGraphics"
+
+    Cache.new(graphics.cache, graphics, modules)
+    Palette.new(graphics.palette, graphics, modules)
+    Registers.new(graphics.registers, graphics, modules, graphics.cache)
+
+    return graphics
+  end
+end
+
 local Graphics = {}
 
-function Graphics.new(modules)
-  local interrupts = modules.interrupts
-  local io = modules.io
-  local memory = modules.memory
-  local timers = modules.timers
-  local processor = modules.processor
+function Graphics.new(gameboy)
+  local interrupts = gameboy.interrupts
+  local io = gameboy.io
+  local memory = gameboy.memory
+  local timers = gameboy.timers
+  local processor = gameboy.processor
 
-  local graphics = {}
-
-  graphics.cache = Cache.new(graphics)
-  graphics.palette = Palette.new(graphics, modules)
-  graphics.registers = Registers.new(graphics, modules, graphics.cache)
+  local graphics = new_graphics(gameboy)
 
   --just for shortening access
   local ports = io.ports
 
-  -- Internal Variables
-  graphics.vblank_count = 0
-  graphics.last_edge = 0
-  graphics.next_edge = 0
-  graphics.lcdstat = false
-
-  graphics.game_screen = {}
-
   graphics.clear_screen = function()
-    for y = 0, 143 do
-      graphics.game_screen[y] = {}
+    for y = 0, 143 * 160, 160 do
       for x = 0, 159 do
-        graphics.game_screen[y][x] = {255, 255, 255}
+        setcolor(graphics.game_screen[y + x], 255, 255, 255)
       end
     end
   end
 
-  graphics.lcd = {}
-
-  -- Initialize VRAM blocks in main memory
-  graphics.vram = memory:create_block(16 * 2 * 1024) -- memory.generate_block(16 * 2 * 1024, 0x8000)
-  graphics.vram.bank = 0
   function graphics.vram:getter(address)
-    return self[address - 0x8000 + (16 * 1024 * self.bank)]
+    return self.mem[address - 0x8000 + (16 * 1024 * self.bank)]
   end
   function graphics.vram:setter(address, value)
     local offset = address - 0x8000
-    self[offset + (0x4000 * self.bank)] = value
+    self.mem[offset + (0x4000 * self.bank)] = value
     if (offset <= 0x17FF) then
       graphics.cache.refreshTile(offset, self.bank)
     end
@@ -72,18 +122,17 @@ function Graphics.new(modules)
   end
   memory:install_hooks(0x8000, 0x2000, graphics.vram)
 
-  graphics.oam = memory:create_block(0xA0) -- (0xA0, 0xFE00)
   function graphics.oam:getter(address)
-    return self[address - 0xFE00]
+    return self.mem[address - 0xFE00]
   end
   function graphics.oam:setter(address, byte)
-    self[address - 0xFE00] = byte
+    self.mem[address - 0xFE00] = byte
     graphics.cache.refreshOamEntry(math.floor((address - 0xFE00) / 4))
   end
   memory:install_hooks(0xFE00, 0xA0, graphics.oam)
 
   io.write_logic[0x4F] = function(byte)
-    if graphics.gameboy.type == graphics.gameboy.types.color then
+    if gameboy.type == gameboy.types.color then
       io[1][0x4F] = bit32.band(0x1, byte)
       graphics.vram.bank = bit32.band(0x1, byte)
     else
@@ -92,8 +141,7 @@ function Graphics.new(modules)
     end
   end
 
-  graphics.initialize = function(gameboy)
-    graphics.gameboy = gameboy
+  graphics.initialize = function() -- TODO: add gameboy back after ffi barrier
     graphics.registers.status.SetMode(2)
     graphics.clear_screen()
     graphics.reset()
@@ -105,12 +153,12 @@ function Graphics.new(modules)
 
     -- zero out all of VRAM:
     for i = 0, (16 * 2 * 1024) - 1 do
-      graphics.vram[i] = 0
+      graphics.vram.mem[i] = 0
     end
 
     -- zero out all of OAM
     for i = 0, 0x9F do
-      graphics.oam[i] = 0
+      graphics.oam.mem[i] = 0
     end
 
     graphics.vblank_count = 0
@@ -122,19 +170,20 @@ function Graphics.new(modules)
     graphics.registers.status.SetMode(2)
   end
 
+  --[[ TODO: readd after ffi barrier
   graphics.save_state = function()
     local state = {}
 
     state.vram = {}
     for i = 0, (16 * 2 * 1024) - 1 do
-      state.vram[i] = graphics.vram[i]
+      state.vram[i] = graphics.vram.mem[i]
     end
 
     state.vram_bank = graphics.vram.bank
 
     state.oam = {}
     for i = 0, 0x9F do
-      state.oam[i] = graphics.oam[i]
+      state.oam[i] = graphics.oam.mem[i]
     end
 
     state.vblank_count = graphics.vblank_count
@@ -167,13 +216,13 @@ function Graphics.new(modules)
 
   graphics.load_state = function(state)
     for i = 0, (16 * 2 * 1024) - 1 do
-      graphics.vram[i] = state.vram[i]
+      graphics.vram.mem[i] = state.vram[i]
     end
 
     graphics.vram.bank = state.vram_bank
 
     for i = 0, 0x9F do
-      graphics.oam[i] = state.oam[i]
+      graphics.oam.mem[i] = state.oam[i]
     end
     graphics.vblank_count = state.vblank_count
     graphics.last_edge = state.last_edge
@@ -198,25 +247,13 @@ function Graphics.new(modules)
     io.write_logic[ports.STAT](io[1][ports.STAT])
     io.write_logic[ports.LCDC](io[1][ports.LCDC])
   end
+  ]]
 
   local time_at_this_mode = function()
     return timers.system_clock - graphics.last_edge
   end
 
-  local scanline_data = {}
-  scanline_data.x = 0
-  scanline_data.bg_tile_x = 0
-  scanline_data.bg_tile_y = 0
-  scanline_data.sub_x = 0
-  scanline_data.sub_y = 0
-  scanline_data.active_tile = nil
-  scanline_data.active_attr = nil
-  scanline_data.current_map = nil
-  scanline_data.current_map_attr = nil
-  scanline_data.window_active = false
-  scanline_data.bg_index = {}
-  scanline_data.bg_priority = {}
-  scanline_data.active_palette = nil
+  local scanline_data = graphics.scanline_data
 
   graphics.refresh_lcdstat = function()
     local lcdstat = false
@@ -342,12 +379,6 @@ function Graphics.new(modules)
     end
   end
 
-  local function plot_pixel(buffer, x, y, r, g, b)
-    buffer[y][x][1] = r
-    buffer[y][x][2] = g
-    buffer[y][x][3] = b
-  end
-
   local frame_data = {}
   frame_data.window_pos_y = 0
   frame_data.window_draw_y = 0
@@ -418,9 +449,7 @@ function Graphics.new(modules)
         bg_index = scanline_data.active_tile[sub_x][sub_y]
         local active_palette = scanline_data.active_attr.palette[bg_index]
 
-        game_screen[ly][dx][1] = active_palette[1]
-        game_screen[ly][dx][2] = active_palette[2]
-        game_screen[ly][dx][3] = active_palette[3]
+        setcolor(game_screen[ly * 160 + dx], active_palette[1], active_palette[2], active_palette[3])
       end
 
       scanline_data.bg_index[scanline_data.x] = bg_index
@@ -470,7 +499,7 @@ function Graphics.new(modules)
       tile_index = tile_index + 256
     end
 
-    if graphics.gameboy.type == graphics.gameboy.types.color then
+    if gameboy.type == gameboy.types.color then
       local map_attr = graphics.cache.map_0_attr
       if map == graphics.cache.map_1 then
         map_attr = graphics.cache.map_1_attr
@@ -561,18 +590,15 @@ function Graphics.new(modules)
             sub_x = 7 - x
           end
           local subpixel_index = tile[sub_x][sub_y]
-          if subpixel_index > 0 then
-            if (bg_priority[display_x] == false and not sprite.bg_priority) or bg_index[display_x] == 0 or graphics.registers.oam_priority then
-              local subpixel_color = sprite.palette[subpixel_index]
-              game_screen[scanline][display_x][1] = subpixel_color[1]
-              game_screen[scanline][display_x][2] = subpixel_color[2]
-              game_screen[scanline][display_x][3] = subpixel_color[3]
-            end
+          if subpixel_index > 0 and ((bg_priority[display_x] == false and not sprite.bg_priority) or bg_index[display_x] == 0 or graphics.registers.oam_priority) then
+            local subpixel_color = sprite.palette[subpixel_index]
+            setcolor(game_screen[scanline * 160 + display_x], subpixel_color[1], subpixel_color[2], subpixel_color[3])
           end
         end
       end
     end
     if #active_sprites > 0 then
+      -- TODO
     end
   end
 

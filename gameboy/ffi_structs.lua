@@ -24,6 +24,7 @@ typedef struct _LuaGBTileAttribute {
     uint8_t bank;
     bool horizontal_flip, vertical_flip, priority;
 } LuaGBTileAttritbute,
+  *LuaGBTileAttritbutePtr,
   (*LuaGBTileAttritbuteMapPtr)[32],
   LuaGBTileAttributeMap[32][32];
 
@@ -89,5 +90,58 @@ typedef struct _LuaGBGraphicRegisters {
          sprites_enabled,
          background_enabled,
          oam_priority;
-} LuaGBRegisters;
+} LuaGBGraphicRegisters;
+
+
+//graphics/init
+
+typedef struct _LuaGBGraphicsScanlineData {
+    uint8_t x,
+            bg_tile_x,
+            bg_tile_y,
+            sub_x,
+            sub_y;
+    LuaGBTileMapPtr current_map;
+    LuaGBTileAttritbuteMapPtr current_map_attr;
+    bool window_active;
+    LuaGBTileList2 active_tile;
+    LuaGBTileAttritbutePtr active_attr;
+    uint8_t bg_index[160],
+            bg_priority[160];
+} LuaGBGraphicsScanlineData;
+
+typedef struct _LuaGBGraphics {
+    LuaGBGraphicsScanlineData scanline_data;
+    uint64_t vblank_count;
+    uint32_t last_edge;
+    uint32_t next_edge;
+    bool lcdstat;
+    struct _LuaGBGraphicsVRam {
+        uint8_t mem[0x8000];
+        uint8_t bank;
+        uint8_t (*getter)(struct _LuaGBGraphicsVRam *, LuaGBAddress);
+        void (*setter)(struct _LuaGBGraphicsVRam *, LuaGBAddress, uint8_t);
+    } vram;
+    struct _LuaGBGraphicsOAM {
+        uint8_t mem[0xA0];
+        uint8_t (*getter)(struct _LuaGBGraphicsOAM *, LuaGBAddress);
+        void (*setter)(struct _LuaGBGraphicsOAM *, LuaGBAddress, uint8_t);
+    } oam;
+    LuaGBPaletteColor game_screen[144 * 160];
+
+    LuaGBGraphicRegisters registers;
+    LuaGBPalette palette;
+    LuaGBTileCache cache;
+    void (*clear_screen)();
+    void (*initialize)();
+    void (*reset)();
+    void (*refresh_lcdstat)();
+    void (*update)();
+    void (*initialize_frame)();
+    void (*initialize_scanline)();
+    void (*switch_to_window)();
+    void (*draw_next_pixels)(double duration);
+    void (*getIndexFromTilemap)(uint8_t, uint8_t, uint8_t, uint8_t);
+    void (*draw_sprites_into_scanline)(uint8_t, uint8_t *, uint8_t *);
+} LuaGBGraphics;
 ]]

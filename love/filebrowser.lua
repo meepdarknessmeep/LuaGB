@@ -45,10 +45,9 @@ filebrowser.init = function(gameboy)
   filebrowser.gameboy = gameboy
 
   filebrowser.game_screen = {}
-  for y = 0, 143 do
-    filebrowser.game_screen[y] = {}
+  for y = 0, 143 * 160, 160 do
     for x = 0, 159 do
-      filebrowser.game_screen[y][x] = {255, 255, 255}
+      filebrowser.game_screen[y + x] = {255, 255, 255}
     end
   end
 
@@ -58,13 +57,13 @@ end
 filebrowser.draw_background = function(sx, sy)
   local palette = filebrowser.gameboy.graphics.palette.dmg_colors
   for x = 0, 159 do
-    for y = 0, 143 do
+    for y = 0, 143 * 160, 160 do
       local tx = math.floor((x + sx) / 8)
       local ty = math.floor((y + sy) / 8)
       if (tx + ty) % 2 == 0 then
-        filebrowser.game_screen[y][x] = palette[0]
+        filebrowser.game_screen[y + x] = palette[0]
       else
-        filebrowser.game_screen[y][x] = palette[1]
+        filebrowser.game_screen[y + x] = palette[1]
       end
     end
   end
@@ -87,7 +86,7 @@ filebrowser.draw_string = function(str, dx, dy, color, max_x)
                 r = color[1] * r
                 g = color[2] * g
                 b = color[3] * b
-                filebrowser.game_screen[y + dy][i * 4 - 4 + x + dx] = {r, g, b}
+                filebrowser.game_screen[(y + dy) * 160 + i * 4 - 4 + x + dx] = {r, g, b}
               end
             end
           end
@@ -99,24 +98,25 @@ end
 
 filebrowser.draw_rectangle = function(dx, dy, width, height, color, filled)
   for x = dx, dx + width - 1 do
-    for y = dy, dy + height - 1 do
+    for y = dy * 160, (dy + height - 1) * 160, 160 do
       if filled or y == dy or y == dy + height - 1 or x == dx or x == dx + width - 1 then
-        filebrowser.game_screen[y][x] = color
+        filebrowser.game_screen[y + x] = color
       end
     end
   end
 end
 
 filebrowser.draw_shadow_pixel = function(x, y)
+  y = y * 160
   local palette = filebrowser.gameboy.graphics.palette.dmg_colors
-  if filebrowser.game_screen[y][x] == palette[2] then
-    filebrowser.game_screen[y][x] = palette[3]
+  if filebrowser.game_screen[y + x] == palette[2] then
+    filebrowser.game_screen[y + x] = palette[3]
   end
-  if filebrowser.game_screen[y][x] == palette[1] then
-    filebrowser.game_screen[y][x] = palette[2]
+  if filebrowser.game_screen[y + x] == palette[1] then
+    filebrowser.game_screen[y + x] = palette[2]
   end
-  if filebrowser.game_screen[y][x] == palette[0] then
-    filebrowser.game_screen[y][x] = palette[1]
+  if filebrowser.game_screen[y + x] == palette[0] then
+    filebrowser.game_screen[y + x] = palette[1]
   end
 end
 
@@ -141,18 +141,14 @@ filebrowser.draw_image = function(sx, sy, image)
 
         if r == 127 then
           filebrowser.draw_shadow_pixel(sx + x, sy + y)
-        end
-        if r == 0 then
-          filebrowser.game_screen[sy + y][sx + x] = palette[3]
-        end
-        if r == 64 then
-          filebrowser.game_screen[sy + y][sx + x] = palette[2]
-        end
-        if r == 128 then
-          filebrowser.game_screen[sy + y][sx + x] = palette[1]
-        end
-        if r == 255 then
-          filebrowser.game_screen[sy + y][sx + x] = palette[0]
+        elseif r == 0 then
+          filebrowser.game_screen[(sy + y) * 160 + sx + x] = palette[3]
+        elseif r == 64 then
+          filebrowser.game_screen[(sy + y) * 160 + sx + x] = palette[2]
+        elseif r == 128 then
+          filebrowser.game_screen[(sy + y) * 160 + sx + x] = palette[1]
+        elseif r == 255 then
+          filebrowser.game_screen[(sy + y) * 160 + sx + x] = palette[0]
         end
       end
     end
@@ -337,15 +333,15 @@ filebrowser.draw = function(dx, dy, scale)
   local stride = image_data:getWidth()
   for y = 0, 143 do
     for x = 0, 159 do
+      local v_pixel = pixels[y * 160 + x]
       if raw_image_data then
-        local pixel = raw_image_data[y*stride+x]
-        local v_pixel = pixels[y][x]
+        local pixel = raw_image_data[y * stride + x]
         pixel.r = v_pixel[1]
         pixel.g = v_pixel[2]
         pixel.b = v_pixel[3]
         pixel.a = 255
       else
-        image_data:setPixel(x, y, pixels[y][x][1], pixels[y][x][2], pixels[y][x][3], 255)
+        image_data:setPixel(x, y, v_pixel[1], v_pixel[2], v_pixel[3], 255)
       end
     end
   end

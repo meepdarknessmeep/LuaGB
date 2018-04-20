@@ -1,11 +1,9 @@
 local bit32 = require("bit")
 local ffi   = require "ffi"
 
-local graphics -- TODO: ffi graphics to enable support for non hacky solution
+local graphics, gameboy -- TODO: ffi graphics to enable support for non hacky solution
 
-local function new_cache()
-  local cache = {}
-
+local function new_cache(cache)
   cache.tiles = {}
   cache.tiles_h_flipped = {}
   cache.map_0 = {}
@@ -49,7 +47,7 @@ local function new_cache()
         cache.map_0_attr[x][y].vertical_flip = false
         cache.map_0_attr[x][y].priority = false
 
-        if graphics.gameboy.type == graphics.gameboy.types.color then
+        if gameboy.type == gameboy.types.color then
           cache.map_1_attr[x][y].palette = graphics.palette.color_bg[0]
         else
           cache.map_1_attr[x][y].palette = graphics.palette.bg
@@ -71,7 +69,7 @@ local function new_cache()
       cache.oam[i].bg_priority = false
       cache.oam[i].horizontal_flip = false
       cache.oam[i].vertical_flip = false
-      if graphics.gameboy.type == graphics.gameboy.types.color then
+      if gameboy.type == gameboy.types.color then
         cache.oam[i].palette = graphics.palette.color_obj[0]
       else
         cache.oam[i].palette = graphics.palette.bg
@@ -83,9 +81,8 @@ local function new_cache()
 end
 
 if (ffi) then
-  function new_cache()
-    local cache = ffi.new("LuaGBTileCache")
-
+  function new_cache(cache)
+    cache = cache or ffi.new "LuaGBTileCache"
     cache.reset = function()
       for i = 0, 768 - 1 do
         for x = 0, 7 do
@@ -101,7 +98,7 @@ if (ffi) then
           cache.map_0[x][y] = cache.tiles[0]
           cache.map_1[x][y] = cache.tiles[0]
 
-          if graphics.gameboy.type == graphics.gameboy.types.color then
+          if gameboy.type == gameboy.types.color then
             cache.map_0_attr[x][y].palette = graphics.palette.color_bg[0]
           else
             cache.map_0_attr[x][y].palette = graphics.palette.bg
@@ -111,7 +108,7 @@ if (ffi) then
           cache.map_0_attr[x][y].vertical_flip = false
           cache.map_0_attr[x][y].priority = false
 
-          if graphics.gameboy.type == graphics.gameboy.types.color then
+          if gameboy.type == gameboy.types.color then
             cache.map_1_attr[x][y].palette = graphics.palette.color_bg[0]
           else
             cache.map_1_attr[x][y].palette = graphics.palette.bg
@@ -132,7 +129,7 @@ if (ffi) then
         cache.oam[i].bg_priority = false
         cache.oam[i].horizontal_flip = false
         cache.oam[i].vertical_flip = false
-        if graphics.gameboy.type == graphics.gameboy.types.color then
+        if gameboy.type == gameboy.types.color then
           cache.oam[i].palette = graphics.palette.color_obj[0]
         else
           cache.oam[i].palette = graphics.palette.bg
@@ -146,27 +143,28 @@ end
 
 local Cache = {}
 
-function Cache.new(g)
-  graphics = g
+function Cache.new(cache, g, gb)
+  graphics, gameboy = g, gb
 
-  local cache = new_cache()
+  local cache = new_cache(cache)
 
   cache.refreshOamEntry = function(index)
-    local y = graphics.oam[index * 4 + 0] - 16
-    local x = graphics.oam[index * 4 + 1] - 8
-    local tile_index = graphics.oam[index * 4 + 2]
-    local flags = graphics.oam[index * 4 + 3]
+    local mem = graphics.oam.mem
+    local y = mem[index * 4 + 0] - 16
+    local x = mem[index * 4 + 1] - 8
+    local tile_index = mem[index * 4 + 2]
+    local flags = mem[index * 4 + 3]
 
     cache.oam[index].x = x
     cache.oam[index].y = y
     local vram_bank = 0
-    if graphics.gameboy.type == graphics.gameboy.types.color then
+    if gameboy.type == gameboy.types.color then
       vram_bank = bit32.rshift(bit32.band(0x08, flags), 3)
     end
     cache.oam[index].bg_priority = bit32.band(0x80, flags) ~= 0
     cache.oam[index].vertical_flip = bit32.band(0x40, flags) ~= 0
     cache.oam[index].horizontal_flip = bit32.band(0x20, flags) ~= 0
-    if graphics.gameboy.type == graphics.gameboy.types.color then
+    if gameboy.type == gameboy.types.color then
       local palette_index = bit32.band(0x07, flags)
       cache.oam[index].palette = graphics.palette.color_obj[palette_index]
     else
@@ -189,9 +187,9 @@ function Cache.new(g)
   end
 
   cache.refreshAttributes = function(map_attr, x, y, address)
-    local data = graphics.vram[address + (16 * 1024)]
+    local data = graphics.vram.mem[address + (16 * 1024)]
     local attr = map_attr[x][y]
-    if graphics.gameboy.type == graphics.gameboy.types.color then
+    if gameboy.type == gameboy.types.color then
       attr.palette = graphics.palette.color_bg[bit32.band(data, 0x07)]
     else
       attr.palette = graphics.palette.bg
@@ -208,8 +206,8 @@ function Cache.new(g)
     local y = math.floor((address % 16) / 2)
     -- kill the lower bit
     address = bit32.band(address, 0xFFFE)
-    local lower_bits = graphics.vram[address + (16 * 1024 * bank)]
-    local upper_bits = graphics.vram[address + (16 * 1024 * bank) + 1]
+    local lower_bits = graphics.vram.mem[address + (16 * 1024 * bank)]
+    local upper_bits = graphics.vram.mem[address + (16 * 1024 * bank) + 1]
     for x = 0, 7 do
       local palette_index = bit32.band(bit32.rshift(lower_bits, 7 - x), 0x1) + (bit32.band(bit32.rshift(upper_bits, 7 - x), 0x1) * 2)
       cache.tiles[tile_index][x][y] = palette_index
@@ -227,7 +225,7 @@ function Cache.new(g)
   end
 
   cache.refreshTileIndex = function(x, y, address, map, attr)
-    local tile_index = graphics.vram[address + (y * 32) + x]
+    local tile_index = graphics.vram.mem[address + (y * 32) + x]
     if graphics.registers.tile_select == 0x9000 then
       if tile_index > 127 then
         tile_index = tile_index - 256

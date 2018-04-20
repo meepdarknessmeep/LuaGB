@@ -19,7 +19,7 @@ Gameboy.processor = require("gameboy/z80")
 
 function Gameboy:initialize()
   self.audio.initialize()
-  self.graphics.initialize(self)
+  self.graphics.initialize()
   self.cartridge.initialize(self)
 
   self:reset()

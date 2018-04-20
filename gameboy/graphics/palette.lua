@@ -7,9 +7,9 @@ local function setcolor(to, r, g, b)
   to[3] = b
 end
 
-local function new_palette()
-  local palette
-  palette = {
+local function new_palette(palette)
+  palette = palette or {}
+  for k,v in pairs {
     bg = {},
     obj0 = {},
     obj1 = {},
@@ -50,7 +50,9 @@ local function new_palette()
         palette.color_obj_raw[i] = 0
       end
     end
-  }
+  } do
+    palette[k] = v
+  end
   palette.reset()
 
   return palette
@@ -58,8 +60,8 @@ end
 
 
 if (ffi) then
-  function new_palette()
-    local palette = ffi.new "LuaGBPalette"
+  function new_palette(palette)
+    palette = palette or ffi.new "LuaGBPalette"
     function palette.reset()
       local dmg_colors = ffi.new "LuaGBPaletteColor[4]"
       setcolor(dmg_colors[0], 255, 255, 255)
@@ -92,11 +94,11 @@ end
 
 local Palette = {}
 
-function Palette.new(graphics, modules)
+function Palette.new(palette, graphics, modules)
   local io = modules.io
   local ports = io.ports
 
-  local palette = new_palette()
+  local palette = new_palette(palette)
 
 
 
