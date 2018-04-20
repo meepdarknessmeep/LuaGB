@@ -63,7 +63,7 @@ if (ffi) then
   function new_palette(palette)
     palette = palette or ffi.new "LuaGBPalette"
     function palette.reset()
-      local dmg_colors = ffi.new "LuaGBPaletteColor[4]"
+      local dmg_colors = palette.dmg_colors
       setcolor(dmg_colors[0], 255, 255, 255)
       setcolor(dmg_colors[1], 192, 192, 192)
       setcolor(dmg_colors[2], 128, 128, 128)
