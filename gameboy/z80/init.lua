@@ -173,7 +173,7 @@ function Z80.new(modules)
   z80.io = io
   z80.registers = Registers.new()
   local reg = z80.registers
-  local flags = reg.flags
+  local flags = reg[8]
 
   -- Intentionally bad naming convention: I am NOT typing "registers"
   -- a bazillion times. The exported symbol uses the full name as a
@@ -198,17 +198,17 @@ function Z80.new(modules)
     flags[4] = true
 
     if gameboy.type == gameboy.types.color then
-      reg.a = 0x11
+      reg[3] = 0x11
     else
-      reg.a = 0x01
+      reg[3] = 0x01
     end
 
-    reg.b = 0x00
-    reg.c = 0x13
-    reg.d = 0x00
-    reg.e = 0xD8
-    reg.h = 0x01
-    reg.l = 0x4D
+    reg[4] = 0x00
+    reg[5] = 0x13
+    reg[6] = 0x00
+    reg[7] = 0xD8
+    reg[9] = 0x01
+    reg[10] = 0x4D
     reg[1] = 0x100 --entrypoint for GB games
     reg[2] = 0xFFFE
 
@@ -260,11 +260,11 @@ function Z80.new(modules)
 
 
   function z80.read_at_hl()
-    return memory[reg.h * 0x100 + reg.l]
+    return memory[reg[9] * 0x100 + reg[10]]
   end
 
-  function z80.set_at_hl(value)
-    memory[reg.h * 0x100 + reg.l] = value
+  function z80.set_at_hl(reg, mem, value)
+    mem[reg[9] * 0x100 + reg[10]] = value
   end
 
   function z80.read_nn()

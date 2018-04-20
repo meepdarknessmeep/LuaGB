@@ -29,14 +29,14 @@ registers.print_registers = function(gameboy, x, y)
   end
 
   local registers = {
-    {0, 0, 0, "A", get_register("a"), 0, 0},
+    {0, 0, 0, "A", get_register(3), 0, 0},
     {0, 0, 0, "F", gameboy.processor.registers.f, 1, 0},
-    {0, 0, 0, "B", get_register("b"), 0, 1},
-    {0, 0, 0, "C", get_register("c"), 1, 1},
-    {0, 0, 0, "D", get_register("d"), 0, 2},
-    {0, 0, 0, "E", get_register("e"), 1, 2},
-    {0, 0, 0, "H", get_register("h"), 0, 3},
-    {0, 0, 0, "L", get_register("l"), 1, 3}
+    {0, 0, 0, "B", get_register(4), 0, 1},
+    {0, 0, 0, "C", get_register(5), 1, 1},
+    {0, 0, 0, "D", get_register(6), 0, 2},
+    {0, 0, 0, "E", get_register(7), 1, 2},
+    {0, 0, 0, "H", get_register(9), 0, 3},
+    {0, 0, 0, "L", get_register(10), 1, 3}
   }
 
   for _, register in ipairs(registers) do
@@ -72,7 +72,7 @@ registers.print_wide_registers = function(gameboy, x, y)
 end
 
 registers.print_flags = function(gameboy, x, y)
-  local function flag_string(flag) return gameboy.processor.registers.flags[flag] == true and flag or "" end
+  local function flag_string(flag) return gameboy.processor.registers[flag] == true and flag or "" end
   love.graphics.setColor(0, 0, 0)
   love.graphics.print(string.format("Flags: [%1s %1s %1s %1s]", flag_string("c"), flag_string("n"), flag_string("h"), flag_string("z")), x, y)
   love.graphics.setColor(1, 1, 1)

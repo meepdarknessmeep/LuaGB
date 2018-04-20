@@ -5,7 +5,7 @@ local band = bit32.band
 function apply(opcodes, opcode_cycles)
 
   local function add_to_a (reg, flags, value)
-    local a = reg.a
+    local a = reg[3]
     -- half-carry
     flags[3] = band(a, 0xF) + band(value, 0xF) > 0xF
 
@@ -14,14 +14,14 @@ function apply(opcodes, opcode_cycles)
     -- carry (and overflow correction)
     flags[4] = sum > 0xFF
 
-    reg.a = band(sum, 0xFF)
+    reg[3] = band(sum, 0xFF)
 
-    flags[1] = reg.a == 0
+    flags[1] = reg[3] == 0
     flags[2] = false
   end
 
   local function adc_to_a (reg, flags, value)
-    local a = reg.a
+    local a = reg[3]
     -- half-carry
     local carry = 0
     if flags[4] then
@@ -32,44 +32,44 @@ function apply(opcodes, opcode_cycles)
 
     -- carry (and overflow correction)
     flags[4] = sum > 0xFF
-    reg.a = band(sum, 0xFF)
+    reg[3] = band(sum, 0xFF)
 
-    flags[1] = reg.a == 0
+    flags[1] = reg[3] == 0
     flags[2] = false
   end
 
   -- add A, r
-  opcodes[0x80] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.b) end
-  opcodes[0x81] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.c) end
-  opcodes[0x82] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.d) end
-  opcodes[0x83] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.e) end
-  opcodes[0x84] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.h) end
-  opcodes[0x85] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.l) end
+  opcodes[0x80] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[4]) end
+  opcodes[0x81] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[5]) end
+  opcodes[0x82] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[6]) end
+  opcodes[0x83] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[7]) end
+  opcodes[0x84] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[9]) end
+  opcodes[0x85] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[10]) end
   opcode_cycles[0x86] = 8
   opcodes[0x86] = function(self, reg, flags, mem) add_to_a(reg, flags, self.read_at_hl()) end
-  opcodes[0x87] = function(self, reg, flags, mem) add_to_a(reg, flags, reg.a) end
+  opcodes[0x87] = function(self, reg, flags, mem) add_to_a(reg, flags, reg[3]) end
 
   -- add A, nn
   opcode_cycles[0xC6] = 8
   opcodes[0xC6] = function(self, reg, flags, mem) add_to_a(reg, flags, self.read_nn()) end
 
   -- adc A, r
-  opcodes[0x88] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.b) end
-  opcodes[0x89] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.c) end
-  opcodes[0x8A] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.d) end
-  opcodes[0x8B] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.e) end
-  opcodes[0x8C] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.h) end
-  opcodes[0x8D] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.l) end
+  opcodes[0x88] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[4]) end
+  opcodes[0x89] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[5]) end
+  opcodes[0x8A] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[6]) end
+  opcodes[0x8B] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[7]) end
+  opcodes[0x8C] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[9]) end
+  opcodes[0x8D] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[10]) end
   opcode_cycles[0x8E] = 8
   opcodes[0x8E] = function(self, reg, flags, mem) adc_to_a(reg, flags, self.read_at_hl()) end
-  opcodes[0x8F] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg.a) end
+  opcodes[0x8F] = function(self, reg, flags, mem) adc_to_a(reg, flags, reg[3]) end
 
   -- adc A, nn
   opcode_cycles[0xCE] = 8
   opcodes[0xCE] = function(self, reg, flags, mem) adc_to_a(reg, flags, self.read_nn()) end
 
   local function sub_from_a (reg, flags, value)
-    local a = reg.a
+    local a = reg[3]
     -- half-carry
     flags[3] = band(a, 0xF) - band(value, 0xF) < 0
     a = a - value
@@ -78,13 +78,13 @@ function apply(opcodes, opcode_cycles)
     flags[4] = a < 0 or a > 0xFF
     a = band(a, 0xFF)
 
-    reg.a = a
+    reg[3] = a
     flags[1] = a == 0
     flags[2] = true
   end
 
   local function sbc_from_a (reg, flags, value)
-    local a = reg.a
+    local a = reg[3]
     local carry = 0
     if flags[4] then
       carry = 1
@@ -98,36 +98,36 @@ function apply(opcodes, opcode_cycles)
     flags[4] = difference < 0 or difference > 0xFF
     a = band(difference, 0xFF)
 
-    reg.a = a
+    reg[3] = a
     flags[1] = a == 0
     flags[2] = true
   end
 
   -- sub A, r
-  opcodes[0x90] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.b) end
-  opcodes[0x91] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.c) end
-  opcodes[0x92] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.d) end
-  opcodes[0x93] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.e) end
-  opcodes[0x94] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.h) end
-  opcodes[0x95] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.l) end
+  opcodes[0x90] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[4]) end
+  opcodes[0x91] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[5]) end
+  opcodes[0x92] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[6]) end
+  opcodes[0x93] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[7]) end
+  opcodes[0x94] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[9]) end
+  opcodes[0x95] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[10]) end
   opcode_cycles[0x96] = 8
   opcodes[0x96] = function(self, reg, flags, mem) sub_from_a(reg, flags, self.read_at_hl()) end
-  opcodes[0x97] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg.a) end
+  opcodes[0x97] = function(self, reg, flags, mem) sub_from_a(reg, flags, reg[3]) end
 
   -- sub A, nn
   opcode_cycles[0xD6] = 8
   opcodes[0xD6] = function(self, reg, flags, mem) sub_from_a(reg, flags, self.read_nn()) end
 
   -- sbc A, r
-  opcodes[0x98] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.b) end
-  opcodes[0x99] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.c) end
-  opcodes[0x9A] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.d) end
-  opcodes[0x9B] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.e) end
-  opcodes[0x9C] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.h) end
-  opcodes[0x9D] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.l) end
+  opcodes[0x98] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[4]) end
+  opcodes[0x99] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[5]) end
+  opcodes[0x9A] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[6]) end
+  opcodes[0x9B] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[7]) end
+  opcodes[0x9C] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[9]) end
+  opcodes[0x9D] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[10]) end
   opcode_cycles[0x9E] = 8
   opcodes[0x9E] = function(self, reg, flags, mem) sbc_from_a(reg, flags, self.read_at_hl()) end
-  opcodes[0x9F] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg.a) end
+  opcodes[0x9F] = function(self, reg, flags, mem) sbc_from_a(reg, flags, reg[3]) end
 
   -- sbc A, nn
   opcode_cycles[0xDE] = 8
@@ -137,7 +137,7 @@ function apply(opcodes, opcode_cycles)
   -- BCD adjustment, correct implementation details located here:
   -- http://www.z80.info/z80syntx.htm#DAA
   opcodes[0x27] = function(self, reg, flags, mem)
-    local a = reg.a
+    local a = reg[3]
     if not flags[2] then
       -- Addition Mode, adjust BCD for previous addition-like instruction
       if band(0xF, a) > 0x9 or flags[3] then
@@ -167,7 +167,7 @@ function apply(opcodes, opcode_cycles)
     -- behaves, yes it's weird.
 
     a = band(a, 0xFF)
-    reg.a = a
+    reg[3] = a
     -- Update zero flag based on A's contents
     flags[1] = a == 0
   end

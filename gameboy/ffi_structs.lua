@@ -1,6 +1,4 @@
-local ffi = require "ffi"
-
-ffi.cdef [[
+require "ffi".cdef [[
 
 typedef uint16_t LuaGBAddress;
 
