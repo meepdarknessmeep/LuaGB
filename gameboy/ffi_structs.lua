@@ -106,8 +106,8 @@ typedef struct _LuaGBGraphicsScanlineData {
     bool window_active;
     LuaGBTileList2 active_tile;
     LuaGBTileAttritbutePtr active_attr;
-    uint8_t bg_index[160],
-            bg_priority[160];
+    uint8_t bg_index[160];
+    bool bg_priority[160];
 } LuaGBGraphicsScanlineData;
 
 typedef struct _LuaGBGraphics {

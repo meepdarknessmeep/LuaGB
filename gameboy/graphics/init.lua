@@ -75,7 +75,7 @@ if (ffi) then
       switch_to_window = false,
       draw_next_pixels = false,
       getIndexFromTilemap = false,
-      draw_sprites_into_scanline = false,
+      draw_sprites_into_scanline = false
     }, {
       __index = graphics,
       __newindex = graphics
@@ -568,7 +568,6 @@ function Graphics.new(gameboy)
           -- There are more than 10 sprites in the table, so we need to pick
           -- a candidate to vote off the island (possibly this one)
           local lowest_priority = i
-          local lowest_priotity_index = nil
           for j = 1, #active_sprites do
             local lowest_x = graphics.cache.oam[lowest_priority].x
             local candidate_x = graphics.cache.oam[active_sprites[j]].x
