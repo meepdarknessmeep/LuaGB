@@ -59,7 +59,7 @@ filebrowser.draw_background = function(sx, sy)
   for x = 0, 159 do
     for y = 0, 143 * 160, 160 do
       local tx = math.floor((x + sx) / 8)
-      local ty = math.floor((y + sy) / 8)
+      local ty = math.floor((y / 160 + sy) / 8)
       if (tx + ty) % 2 == 0 then
         filebrowser.game_screen[y + x] = palette[0]
       else
