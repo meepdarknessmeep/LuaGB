@@ -245,8 +245,8 @@ function apply(opcodes, opcode_cycles)
     5,
     6,
     7,
-    8,
     9,
+    10,
     nil,
     3
   }
